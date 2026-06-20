@@ -1,0 +1,6 @@
+{
+  "name": "DK-Typing",
+  "description": "Yozish tezligini sinash va o'qitish platformasi (Typing Speed Test and Training Platform in Uzbek & English)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --animate-gradient-slow: gradient-slow 15s ease infinite;
+
+  @keyframes gradient-slow {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+}
+
+/* Custom styling for print layouts */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  main, nav, aside, button, .print\:hidden {
+    display: none !important;
+  }
+  #graduation-certificate-document {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    border: 3px double #334155 !important;
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+  }
+}
+
+/* Gold neon highlight decoration */
+.text-gold-glow {
+  text-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+}
+
