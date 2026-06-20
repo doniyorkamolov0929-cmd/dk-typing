@@ -20,6 +20,8 @@ import Sidebar from './components/Sidebar';
 import SpeedTest from './components/SpeedTest';
 import Academy from './components/Academy';
 import Dashboard from './components/Dashboard';
+import Leaderboard from './components/Leaderboard';
+import { THEMES } from './utils/theme';
 
 import { 
   AlertTriangle, 
@@ -33,7 +35,7 @@ import {
 export default function App() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [history, setHistory] = useState<TestHistoryEntry[]>([]);
-  const [activeTab, setActiveTab] = useState<'speedtest' | 'academy' | 'dashboard'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'speedtest' | 'academy' | 'dashboard' | 'leaderboard'>('dashboard');
   
   // App language setting (uz = Uzbek, en = English) saved in localstorage
   const [language, setLanguage] = useState<'uz' | 'en'>('uz');
@@ -175,8 +177,12 @@ export default function App() {
     return <WelcomeModal onComplete={handleWelcomeComplete} />;
   }
 
+  // Dynamic Theme layout matching
+  const activeThemeId = profile?.theme || 'classic';
+  const themeConfig = THEMES[activeThemeId] || THEMES.classic;
+
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen bg-slate-50 font-sans text-slate-850">
+    <div className={`flex flex-col lg:flex-row min-h-screen ${themeConfig.appBg} font-sans transition-all duration-300`}>
       
       {/* 1. Sidebar Nav Section panel */}
       <Sidebar
@@ -219,6 +225,13 @@ export default function App() {
               language={language}
               onClearHistoryTrigger={() => setShowHistoryClearModal(true)}
               onPracticeProblemKeys={handlePracticeProblemKeys}
+            />
+          )}
+
+          {activeTab === 'leaderboard' && profile && (
+            <Leaderboard
+              profile={profile}
+              language={language}
             />
           )}
         </div>

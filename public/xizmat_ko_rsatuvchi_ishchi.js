@@ -3,22 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-const CACHE_NAME = 'dk-typing-v3';
-const ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/src/main.tsx',
-  '/src/App.tsx',
-  '/src/index.css'
-];
-
+// Self-destructing Service Worker to unregister and purge cache, preventing caching issues
 self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS).catch(() => {});
-    })
-  );
   self.skipWaiting();
 });
 
@@ -26,26 +12,19 @@ self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
+        keys.map((key) => caches.delete(key))
       );
+    }).then(() => {
+      return self.registration.unregister();
+    }).then(() => {
+      return self.clients.matchAll();
+    }).then((clients) => {
+      clients.forEach((client) => {
+        if (client.url && 'navigate' in client) {
+          client.navigate(client.url);
+        }
+      });
     })
   );
-  self.clients.claim();
 });
 
-self.addEventListener('fetch', (e) => {
-  e.respondWith(
-    caches.match(e.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(e.request).then((networkResponse) => {
-        return networkResponse;
-      }).catch(() => {});
-    })
-  );
-});

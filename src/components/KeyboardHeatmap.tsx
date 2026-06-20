@@ -33,15 +33,15 @@ export default function KeyboardHeatmap({ profile, onPracticeProblemKeys }: Keyb
     return { errors, total, errorRate };
   };
 
-  // Get problem keys (keys with error rate >= 4% and total typed >= 5)
+  // Get problem keys (keys with error rate >= 20% and total typed >= 5, errors > 2)
   const getProblemKeysList = () => {
     const list: { key: string; errorRate: number; errors: number; total: number }[] = [];
     Object.keys(profile.keyTotal).forEach(k => {
       const total = profile.keyTotal[k] || 0;
       const errors = profile.keyErrors[k] || 0;
-      if (total >= 4) {
+      if (total >= 5 && errors > 2) {
         const rate = (errors / total) * 100;
-        if (rate >= 4) {
+        if (rate >= 20) {
           list.push({ key: k, errorRate: rate, errors, total });
         }
       }
@@ -53,16 +53,16 @@ export default function KeyboardHeatmap({ profile, onPracticeProblemKeys }: Keyb
 
   // Color mapper based on error rates
   const getKeyClass = (key: string) => {
-    const { total, errorRate } = getKeyStats(key);
+    const { total, errorRate, errors } = getKeyStats(key);
     
     if (total === 0) {
       return 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100';
     }
 
-    if (errorRate >= 8) {
+    if (errors > 2 && errorRate >= 20) {
       // High/critical error: thick crimson gradient
       return 'bg-gradient-to-br from-red-500 to-rose-600 border-red-600 text-white font-extrabold shadow-sm scale-95 shadow-red-500/20';
-    } else if (errorRate >= 3) {
+    } else if (errors >= 2 && errorRate >= 8) {
       // Moderate error: soft pink/rose style
       return 'bg-rose-100 border-rose-300 text-rose-800 font-semibold';
     } else {
@@ -153,15 +153,15 @@ export default function KeyboardHeatmap({ profile, onPracticeProblemKeys }: Keyb
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-slate-150">
         <div className="flex items-center space-x-2.5">
           <div className="w-4 h-4 rounded bg-slate-50 border border-slate-200" />
-          <span className="text-xs text-slate-600">Yozilmagan yoki Mukammal (0% - 2%)</span>
+          <span className="text-xs text-slate-600">Yozilmagan yoki Mukammal (0% - 7%, xatolar &lt; 2)</span>
         </div>
         <div className="flex items-center space-x-2.5">
           <div className="w-4 h-4 rounded bg-rose-100 border border-rose-300" />
-          <span className="text-xs text-slate-600">O'rtacha xatolik (3% - 7%)</span>
+          <span className="text-xs text-slate-600">O'rtacha xatolik (8% - 19%, xatolar &gt;= 2)</span>
         </div>
         <div className="flex items-center space-x-2.5">
           <div className="w-4 h-4 rounded bg-red-500 border border-red-600 shadow-sm" />
-          <span className="text-xs text-slate-600">{"Yuqori muammo (>= 8%)"}</span>
+          <span className="text-xs text-slate-600">{"Yuqori muammo (>= 20%, xatolar > 2)"}</span>
         </div>
       </div>
 

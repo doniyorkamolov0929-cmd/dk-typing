@@ -15,6 +15,9 @@ export interface UserProfile {
   keyErrors: Record<string, number>; // e.g., 'A': 12
   keyTotal: Record<string, number>; // e.g., 'A': 100
   isAlternativeCycle: boolean; // For elite prestige alternative lesson texts
+  theme?: 'classic' | 'dracula' | 'nord' | 'cyberpunk' | 'retro'; // Custom styling themes
+  soundEnabled?: boolean; // Audible keypad sounds
+  soundType?: 'blue' | 'brown' | 'typewriter' | 'beep'; // Cherry MX switches or classic typewriter
 }
 
 export interface TestHistoryEntry {

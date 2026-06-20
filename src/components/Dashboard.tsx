@@ -86,18 +86,23 @@ export default function Dashboard({
       {/* 1. Header welcome brand */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <span className="text-xs bg-slate-100 text-slate-800 font-bold px-3 py-1 bg-slate-200/50 rounded-full tracking-wide">
-            {language === 'uz' ? 'O\'quvchi boshqaruv paneli' : 'Student control panel'}
-          </span>
-          <h2 className="text-2xl font-black text-slate-850 tracking-tight mt-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs bg-slate-100 text-slate-800 font-bold px-3 py-1 bg-slate-200/50 rounded-full tracking-wide border border-slate-250/50">
+              {language === 'uz' ? 'O\'quvchi boshqaruv paneli' : 'Student control panel'}
+            </span>
+            <span className="text-xs bg-cyan-150 text-cyan-800 border-cyan-200/50 font-bold px-3 py-1 bg-cyan-100/40 rounded-full tracking-wide border">
+              {language === 'uz' ? 'Yaratuvchi: Doniyor Kamolov' : 'Created by: Doniyor Kamolov'}
+            </span>
+          </div>
+          <h2 className="text-2xl font-black text-slate-850 tracking-tight mt-1.5/1">
             {language === 'uz' 
               ? `Tanishganimizdan xursandmiz, ${profile.fullName || 'Do\'st'}!` 
               : `Welcome back, ${profile.fullName || 'Friend'}!`}
           </h2>
           <p className="text-xs text-slate-500">
             {language === 'uz' 
-              ? "Ushbu sahifada sizning doimiy yutuqlaringiz, klaviatura tahlillari hamda yozish tarixi saqlanadi."
-              : "Monitor your overall typing performance, key accuracy hotspots, and training sessions."}
+              ? "Ushbu xavfsiz sahifada Doniyor Kamolov tomonidan taqdim etilgan doimiy yutuqlaringiz va klaviatura tahlillari saqlanadi."
+              : "This workspace, designed by Doniyor Kamolov, tracks your secure performance records and keyboard accuracy hotspots."}
           </p>
         </div>
 

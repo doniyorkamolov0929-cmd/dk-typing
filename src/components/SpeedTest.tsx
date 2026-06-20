@@ -13,19 +13,29 @@ import {
   AlertCircle, 
   TrendingUp, 
   CheckCircle,
-  HelpCircle,
   Clock,
-  Play
+  Play,
+  Palette,
+  Terminal,
+  Layers,
+  Sparkles,
+  Award,
+  BookOpen,
+  History,
+  Info,
+  RefreshCw
 } from 'lucide-react';
-import { getRandomParagraph } from '../data/sentences';
+import { getRandomTestText } from '../data/sentences';
 import { UserProfile, TestHistoryEntry } from '../types';
+import { THEMES, ThemeColors } from '../utils/theme';
+import { playKeySound, playErrorSound } from '../utils/audio';
 
 interface SpeedTestProps {
   profile: UserProfile;
   setProfile: React.Dispatch<React.SetStateAction<UserProfile>>;
   onSaveHistory: (entry: Omit<TestHistoryEntry, 'id' | 'date'>) => void;
   language: 'uz' | 'en';
-  practiceKeys: string[] | null; // For targeted keyboard trouble practice
+  practiceKeys: string[] | null;
   clearPracticeKeys: () => void;
 }
 
@@ -37,31 +47,39 @@ export default function SpeedTest({
   practiceKeys,
   clearPracticeKeys
 }: SpeedTestProps) {
-  // Durations: 1m, 2m, 3m, 5m (seconds)
-  const durations = [60, 120, 180, 300];
-  const [selectedDuration, setSelectedDuration] = useState(60);
+  // Grab active theme configuration
+  const activeThemeId = profile.theme || 'classic';
+  const theme: ThemeColors = THEMES[activeThemeId] || THEMES.classic;
+
+  // Sound settings
+  const soundEnabled = profile.soundEnabled !== false;
+  const activeSoundType = profile.soundType || 'blue';
+
+  // State options: 4 main modes + Code mode
+  const [activeMode, setActiveMode] = useState<'time' | 'words' | 'quote' | 'zen' | 'code'>('time');
+  const [selectedDuration, setSelectedDuration] = useState<number>(60); // 15, 30, 60, 120 seconds
+  const [selectedWordCount, setSelectedWordCount] = useState<number>(25); // 10, 25, 50, 100 words
+  const [selectedCodeLang, setSelectedCodeLang] = useState<string>('javascript'); // javascript, python, html_css, cpp
+
+  // Standard speed test timers and countdown
   const [timeLeft, setTimeLeft] = useState(60);
   const [testActive, setTestActive] = useState(false);
   const [testFinished, setTestFinished] = useState(false);
 
-  // Sound effects toggler
-  const [soundEnabled, setSoundEnabled] = useState(true);
-
-  // Source text variables
+  // Focus and sentence states
   const [sourceText, setSourceText] = useState('');
   const [typedStatuses, setTypedStatuses] = useState<('untyped' | 'correct' | 'incorrect')[]>([]);
   const [charIndex, setCharIndex] = useState(0);
 
-  // Statistics counters
+  // Live statistical counters
   const [totalTypedKeys, setTotalTypedKeys] = useState(0);
   const [correctTypedKeys, setCorrectTypedKeys] = useState(0);
   const [mistakesCount, setMistakesCount] = useState(0);
 
-  // Refs for tracking up to date values in closures
+  // Keep references to active typed keys close for the timers
   const totalTypedKeysRef = useRef(0);
   const correctTypedKeysRef = useRef(0);
 
-  // Sync refs on state changes
   useEffect(() => {
     totalTypedKeysRef.current = totalTypedKeys;
   }, [totalTypedKeys]);
@@ -70,71 +88,33 @@ export default function SpeedTest({
     correctTypedKeysRef.current = correctTypedKeys;
   }, [correctTypedKeys]);
 
-  // Timestamps for real-time tracking
+  // Timestamps
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number | null>(null);
 
-  // Input listener and scroll positioning references
+  // Focus reference
   const containerRef = useRef<HTMLDivElement>(null);
   const activeCharRef = useRef<HTMLSpanElement>(null);
-  
-  // Track focus status of typing zone
   const [isFocused, setIsFocused] = useState(false);
 
-  // Alert confirming changing parameters
-  const [showConfigAlert, setShowConfigAlert] = useState<{ type: 'lang' | 'timer', value: any } | null>(null);
+  // Confirming prompt alert triggers
+  const [showConfigAlert, setShowConfigAlert] = useState<{ type: string; value: any } | null>(null);
 
-  // Play simple synth sound for audio feedback
-  const playBeep = (freq: number, dur: number) => {
-    if (!soundEnabled) return;
-    try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, ctx.currentTime);
-      gain.gain.setValueAtTime(0.05, ctx.currentTime);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      setTimeout(() => {
-        try {
-          osc.stop();
-          ctx.close();
-        } catch (_) {}
-      }, dur);
-    } catch (_) {}
-  };
-
-  // Generate sentences
-  const generateNewTestText = (keysToFocus: string[] | null) => {
-    if (keysToFocus && keysToFocus.length > 0) {
-      // Focus practice: generate a text heavy in specifically requested keys
-      const sampleSet = language === 'uz' 
-        ? ["katta dars", "qiyinchilik", "mukammal bosqich", "shirin so'z", "boshlang'ich", "ishlab chiquvchi", "analitika xaritasi"] 
-        : ["quick focus", "expert key training", "problem solver", "vibrant structure", "typist capability"];
-      
-      let generated = "";
-      for (let i = 0; i < 15; i++) {
-        const randWord = sampleSet[Math.floor(Math.random() * sampleSet.length)];
-        const focusPart = keysToFocus.map(k => k.toUpperCase() + k.toLowerCase()).join('');
-        generated += `${randWord} ${focusPart} `;
-      }
-      return generated.trim();
-    } else {
-      return getRandomParagraph(language, 3);
-    }
-  };
-
-  // Setup current test session
-  const initializeTest = (duration: number = selectedDuration, forceNewText: boolean = true) => {
-    // Reset timer
+  // Setup / reset typing text
+  const initializeTest = (
+    modeVal: 'time' | 'words' | 'quote' | 'zen' | 'code' = activeMode,
+    durationVal: number = selectedDuration,
+    wordCountVal: number = selectedWordCount,
+    codeLangVal: string = selectedCodeLang,
+    forceNewText: boolean = true
+  ) => {
+    // Clear countdown interval
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = null;
     startTimeRef.current = null;
 
-    setTimeLeft(duration);
+    setTimeLeft(durationVal);
     setElapsedSeconds(0);
     setCharIndex(0);
     setTotalTypedKeys(0);
@@ -144,114 +124,152 @@ export default function SpeedTest({
     setTestFinished(false);
 
     if (forceNewText || !sourceText) {
-      const generated = generateNewTestText(practiceKeys);
-      setSourceText(generated);
-      setTypedStatuses(new Array(generated.length).fill('untyped'));
+      // Focus custom critical troubleshooting characters if passed
+      let text = '';
+      if (practiceKeys && practiceKeys.length > 0) {
+        const sampleSet = language === 'uz' 
+          ? ["katta dars", "qiyinchilik", "mukammal bosqich", "shirin so'z", "boshlang'ich", "ishlab chiquvchi", "analitika xaritasi"] 
+          : ["quick focus", "expert key training", "problem solver", "vibrant structure", "typist capability"];
+        
+        let generated = "";
+        for (let i = 0; i < 15; i++) {
+          const randWord = sampleSet[Math.floor(Math.random() * sampleSet.length)];
+          const focusPart = practiceKeys.map(k => k.toUpperCase() + k.toLowerCase()).join('');
+          generated += `${randWord} ${focusPart} `;
+        }
+        text = generated.trim();
+      } else {
+        // Standard random selector
+        text = getRandomTestText(language, modeVal, codeLangVal, modeVal === 'words' ? Math.ceil(wordCountVal / 6) : 3);
+        // Crop exactly to word limits if mode is words
+        if (modeVal === 'words') {
+          const words = text.split(/\s+/);
+          text = words.slice(0, wordCountVal).join(" ");
+        }
+      }
+
+      setSourceText(text);
+      setTypedStatuses(new Array(text.length).fill('untyped'));
     } else {
       setTypedStatuses(new Array(sourceText.length).fill('untyped'));
     }
   };
 
-  // Trigger setup on load
+  // Setup default test on mount or modes changes
   useEffect(() => {
-    initializeTest(selectedDuration, true);
-  }, [language, practiceKeys]);
+    initializeTest(activeMode, selectedDuration, selectedWordCount, selectedCodeLang, true);
+  }, [language, practiceKeys, activeMode, selectedDuration, selectedWordCount, selectedCodeLang]);
 
-  // Clean timer on unmount
+  // Clean timer handle
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
 
-  // Live timer interval loop
+  // Countdown timer loop
   const startCountdown = () => {
     setTestActive(true);
     startTimeRef.current = Date.now();
-    
+
     timerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          finishTest();
-          return 0;
-        }
-        setElapsedSeconds(selectedDuration - (prev - 1));
-        return prev - 1;
+      // Track actual elapsed seconds
+      setElapsedSeconds(prev => {
+        const nextSec = prev + 1;
+        
+        setTimeLeft(t => {
+          if (t <= 1) {
+            finishTest(nextSec);
+            return 0;
+          }
+          return t - 1;
+        });
+
+        return nextSec;
       });
     }, 1000);
   };
 
-  // Conclude the test
-  const finishTest = () => {
+  // Conclude the typing session
+  const finishTest = (finalElapsed: number = elapsedSeconds) => {
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = null;
     setTestActive(false);
     setTestFinished(true);
 
-    // Calculate final metrics
-    const finalMinutes = selectedDuration / 60;
-    // Solely count correct typed keys for typing speed calculation
-    const finalWpm = Math.max(0, Math.round((correctTypedKeysRef.current / 5) / finalMinutes));
-    const finalAccuracy = totalTypedKeysRef.current > 0 ? Math.round((correctTypedKeysRef.current / totalTypedKeysRef.current) * 100) : 100;
+    const activeSeconds = Math.max(1, finalElapsed);
+    const minutes = activeSeconds / 60;
+    
+    // Calculate net WPM: (correct characters / 5) / minutes
+    const finalWpm = Math.max(0, Math.round((correctTypedKeysRef.current / 5) / minutes));
+    const finalAccuracy = totalTypedKeysRef.current > 0 
+      ? Math.round((correctTypedKeysRef.current / totalTypedKeysRef.current) * 100) 
+      : 100;
 
-    // Trigger save history
+    let testName = "";
+    if (practiceKeys) {
+      testName = language === 'uz' ? "Muammoli harflar mashqi" : "Problem keys heavy drill";
+    } else {
+      switch (activeMode) {
+        case 'time':
+          testName = language === 'uz' ? `${selectedDuration} soniyalik test` : `${selectedDuration}s timed test`;
+          break;
+        case 'words':
+          testName = language === 'uz' ? `${selectedWordCount} talik so'z testi` : `${selectedWordCount} words mode`;
+          break;
+        case 'quote':
+          testName = language === 'uz' ? "Klassik iqtibos yozish" : "Classic wise quote";
+          break;
+        case 'code':
+          testName = `Code: ${selectedCodeLang.toUpperCase()}`;
+          break;
+        case 'zen':
+          testName = language === 'uz' ? "Zen sokin yozish" : "Zen focused writing";
+          break;
+      }
+    }
+
+    // Save report to localStorage timeline
     onSaveHistory({
       wpm: finalWpm,
       accuracy: finalAccuracy,
-      durationSeconds: selectedDuration,
+      durationSeconds: activeSeconds,
       language: language,
       type: 'speedtest',
-      name: practiceKeys 
-        ? (language === 'uz' ? "Muammoli tugmalar mashqi" : "Problem keys training")
-        : (language === 'uz' ? `${selectedDuration / 60} Daqiqalik Test` : `${selectedDuration / 60} Min Speed Test`)
+      name: testName
     });
 
-    // Update global streak, stars (giving 1 star if completed speed test, up to 3 stars if perfect)
+    // Provide stars dynamically based on precision
     let starsEarned = 1;
-    if (finalAccuracy >= 95) starsEarned = 3;
-    else if (finalAccuracy >= 85) starsEarned = 2;
+    if (finalAccuracy >= 98 && finalWpm >= 40) starsEarned = 3;
+    else if (finalAccuracy >= 90) starsEarned = 2;
 
-    setProfile(prev => {
-      return {
-        ...prev,
-        totalStars: prev.totalStars + starsEarned
-      };
-    });
+    setProfile(prev => ({
+      ...prev,
+      totalStars: Math.min(180, prev.totalStars + starsEarned)
+    }));
   };
 
-  // Unlimited text appended seamlessly when kursor nears the end
-  useEffect(() => {
-    if (sourceText.length > 0 && sourceText.length - charIndex < 100 && !testFinished) {
-      // Fetch some more random sentences
-      const nextParagraph = getRandomParagraph(language, 2);
-      setSourceText(prev => prev + " " + nextParagraph);
-      setTypedStatuses(prev => [...prev, 'untyped', ...new Array(nextParagraph.length).fill('untyped')]);
-    }
-  }, [charIndex, sourceText, language, testFinished]);
-
-  // Handle typing inputs
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (testFinished) return;
 
-    // Prevent scrolling default browser actions for spacebar
+    // Prevent scrolling keys default spacebar action
     if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       e.preventDefault();
     }
 
-    // Capture backspaces
+    // Capture Backspace
     if (e.key === 'Backspace') {
       if (charIndex > 0) {
         const prevIdx = charIndex - 1;
         setCharIndex(prevIdx);
-        
-        // Remove correctness status
+
         setTypedStatuses(prev => {
           const updated = [...prev];
           updated[prevIdx] = 'untyped';
           return updated;
         });
 
-        // Let backspace reduce correct character counts if they deleted a correct key
         if (typedStatuses[prevIdx] === 'correct') {
           setCorrectTypedKeys(c => Math.max(0, c - 1));
         }
@@ -259,12 +277,12 @@ export default function SpeedTest({
       return;
     }
 
-    // Ignore systemic helper commands
+    // Ignore commands
     if (e.key.length !== 1 || e.ctrlKey || e.altKey || e.metaKey) {
       return;
     }
 
-    // First keystroke activates timer
+    // Start timer on first keystroke
     if (!testActive && !testFinished && charIndex === 0) {
       startCountdown();
     }
@@ -272,15 +290,15 @@ export default function SpeedTest({
     const expectedChar = sourceText[charIndex];
     const typedChar = e.key;
 
-    // Safe profiling updates on keys error rate
+    // Heatmap statistics tracker
     const expectedLetterUpper = expectedChar.toUpperCase();
-    const isAlphabet = /^[A-Z;,.]$/.test(expectedLetterUpper);
+    const isAlphabet = /^[A-Z;,.{}()\[\]<>:;=+\-'"_]$/.test(expectedLetterUpper);
 
     const updatedStatuses = [...typedStatuses];
 
     if (typedChar === expectedChar) {
-      // SUCCESS key typed
-      playBeep(440, 50); // perfect normal key click tone
+      // Correct character typed
+      if (soundEnabled) playKeySound(activeSoundType);
       updatedStatuses[charIndex] = 'correct';
       setCorrectTypedKeys(prev => prev + 1);
 
@@ -292,8 +310,8 @@ export default function SpeedTest({
         });
       }
     } else {
-      // MISSED key typed
-      playBeep(220, 100); // deeper error buzzer tone
+      // Inaccurate character typed
+      if (soundEnabled) playErrorSound();
       updatedStatuses[charIndex] = 'incorrect';
       setMistakesCount(prev => prev + 1);
 
@@ -310,10 +328,27 @@ export default function SpeedTest({
 
     setTypedStatuses(updatedStatuses);
     setTotalTypedKeys(prev => prev + 1);
-    setCharIndex(prev => prev + 1);
+    
+    const nextCharIndex = charIndex + 1;
+    setCharIndex(nextCharIndex);
+
+    // End condition for text completion modes (Words, Quote, Code)
+    if (nextCharIndex >= sourceText.length) {
+      setTimeout(() => {
+        finishTest(elapsedSeconds || 1);
+      }, 50);
+    }
   };
 
-  // Always keep kursor visible scrolling beautifully
+  // Seamlessly append text in Zen and Timed modes when approaching the end
+  useEffect(() => {
+    if ((activeMode === 'zen' || activeMode === 'time') && sourceText.length > 0 && sourceText.length - charIndex < 80 && !testFinished) {
+      const extraText = getRandomTestText(language, activeMode, selectedCodeLang, 2);
+      setSourceText(prev => prev + " " + extraText);
+      setTypedStatuses(prev => [...prev, 'untyped', ...new Array(extraText.length + 1).fill('untyped')]);
+    }
+  }, [charIndex, sourceText, language, testFinished, activeMode]);
+
   useEffect(() => {
     if (activeCharRef.current) {
       activeCharRef.current.scrollIntoView({
@@ -324,164 +359,279 @@ export default function SpeedTest({
     }
   }, [charIndex]);
 
-  // Confirming reconfiguration without breaking browser sandbox window rules
-  const handleDurationChangeClick = (d: number) => {
+  // Handle Mode Change
+  const triggerModeChange = (mode: typeof activeMode) => {
     if (testActive && charIndex > 0) {
-      setShowConfigAlert({ type: 'timer', value: d });
+      setShowConfigAlert({ type: 'mode', value: mode });
     } else {
-      setSelectedDuration(d);
-      initializeTest(d, true);
+      setActiveMode(mode);
+      initializeTest(mode, selectedDuration, selectedWordCount, selectedCodeLang, true);
     }
   };
 
-  // Calculated Realtime values
-  const minutesPassed = Math.max(0.01, elapsedSeconds / 60);
-  const liveWpm = Math.round((correctTypedKeys / 5) / minutesPassed);
+  // Helper selectors
+  const liveMinutes = Math.max(0.01, (elapsedSeconds || (Date.now() - (startTimeRef.current || Date.now())) / 1000) / 60);
+  const liveWpm = Math.round((correctTypedKeys / 5) / liveMinutes);
   const liveAccuracy = totalTypedKeys > 0 ? Math.round((correctTypedKeys / totalTypedKeys) * 100) : 100;
-
-  // Render clock circle SVG helper
-  const strokeDashoffset = 282.6 - (282.6 * timeLeft) / selectedDuration;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto p-2">
       
-      {/* Configuration Header Card */}
-      <div className="bg-white border border-slate-200 outline-none rounded-3xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <span className="text-xs bg-cyan-100 text-cyan-800 font-extrabold px-3 py-1.5 rounded-full uppercase tracking-wider font-mono">
-            {practiceKeys ? "Zaif mashq" : (language === 'uz' ? "Maxsus tezlik testi" : "Custom speed test")}
-          </span>
-          <h2 className="text-2xl font-black text-slate-800 tracking-tight mt-1">
-            {practiceKeys 
-              ? (language === 'uz' ? "Muammoli harflarga yo'naltirilgan dars" : "Troublesome Keys Heavy Drill")
-              : (language === 'uz' ? "Vaqt bilan belgilangan mashq" : "Timed Practice Session")}
-          </h2>
-          <p className="text-xs text-slate-500">
-            {language === 'uz' 
-              ? "Vaqtni tanlang va yozishni boshlang. Soniya taymer birinchi tugma bosilganda o'z-o'zidan ishga tushadi."
-              : "Select duration and begin typing. The clock starts automatically on your first keystroke."}
-          </p>
+      {/* 1. TOP PROFESSIONAL CONFIGURATION BAR */}
+      <div className={`p-6 rounded-3xl border transition-all ${theme.cardBg} outline-none flex flex-col gap-5`}>
+        
+        {/* Row 1: Logo, Title and Mode Buttons */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <span className="text-xs bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 font-extrabold px-3 py-1.5 rounded-full uppercase tracking-wider font-mono">
+              {practiceKeys ? "Zaif tugmalar mashqi" : (language === 'uz' ? "DK-Typing tezlik testi" : "Custom speed drills")}
+            </span>
+            <h2 className="text-2xl font-black tracking-tight mt-1 flex items-center space-x-2">
+              <Sparkles className="w-5 h-5 text-amber-500 fill-amber-500 animate-pulse" />
+              <span>{language === 'uz' ? "Yozish Rejimlari va Sozlamalar" : "Custom Training Arena"}</span>
+            </h2>
+          </div>
+
+          {/* Core Mode Toggles */}
+          {!practiceKeys && (
+            <div className={`flex flex-wrap bg-slate-950/40 p-1.5 rounded-2xl border ${theme.border} shadow-inner`}>
+              {(['time', 'words', 'quote', 'zen', 'code'] as const).map(mode => (
+                <button
+                  key={mode}
+                  id={`mode-toggle-${mode}`}
+                  onClick={() => triggerModeChange(mode)}
+                  className={`px-3 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${activeMode === mode ? 'bg-cyan-500 text-slate-950 font-black shadow' : `${theme.textSecondary} hover:text-white`}`}
+                >
+                  {mode === 'time' && (language === 'uz' ? '⏱️ Vaqt' : '⏱️ Time')}
+                  {mode === 'words' && (language === 'uz' ? '🆎 Soʻzlar' : '🆎 Words')}
+                  {mode === 'quote' && (language === 'uz' ? '💬 Iqtibos' : '💬 Quotes')}
+                  {mode === 'zen' && (language === 'uz' ? '🧘 Zen' : '🧘 Zen')}
+                  {mode === 'code' && (language === 'uz' ? '💻 Dasturchi' : '💻 Code')}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Dynamic Selector Timers */}
-        {!practiceKeys && (
-          <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 self-start md:self-auto shadow-inner">
-            {durations.map(d => (
-              <button
-                key={d}
-                id={`duration-selector-${d}`}
-                onClick={() => handleDurationChangeClick(d)}
-                className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${selectedDuration === d ? 'bg-slate-900 text-cyan-400 font-extrabold shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-              >
-                {d < 60 ? `${d} soniya` : `${d / 60} Daqiqa`}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Row 2: Subsettings Panel of Selected Mode */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-800/20">
+          
+          {/* Left panel: Mode specific variables (intervals, limits, code languages) */}
+          <div className="flex flex-wrap items-center gap-2">
+            
+            {!practiceKeys && (
+              <div className="flex items-center space-x-2">
+                <span className={`text-xs font-mono lowercase ${theme.textSecondary}`}>{language === 'uz' ? "vaqt:" : "dur:"}</span>
+                <div className="flex bg-slate-950/20 p-1 rounded-xl">
+                  {[15, 30, 60, 120].map(sec => (
+                    <button
+                      key={sec}
+                      onClick={() => {
+                        setSelectedDuration(sec);
+                        initializeTest(activeMode, sec, selectedWordCount, selectedCodeLang, true);
+                      }}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${selectedDuration === sec ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : `${theme.textSecondary} hover:text-white`}`}
+                    >
+                      {sec}s
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
-        {/* Control toggler buttons */}
-        <div className="flex items-center space-x-3 self-end md:self-auto">
-          {practiceKeys && (
+            {activeMode === 'words' && (
+              <div className="flex items-center space-x-2">
+                <span className={`text-xs font-mono lowercase ${theme.textSecondary}`}>{language === 'uz' ? "so'z soni:" : "words:"}</span>
+                <div className="flex bg-slate-950/20 p-1 rounded-xl">
+                  {[10, 25, 50, 100].map(words => (
+                    <button
+                      key={words}
+                      onClick={() => {
+                        setSelectedWordCount(words);
+                        initializeTest('words', selectedDuration, words, selectedCodeLang, true);
+                      }}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${selectedWordCount === words ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : `${theme.textSecondary} hover:text-white`}`}
+                    >
+                      {words}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeMode === 'code' && (
+              <div className="flex items-center space-x-2 flex-wrap">
+                <span className={`text-xs font-mono lowercase ${theme.textSecondary}`}>{language === 'uz' ? "til:" : "lang:"}</span>
+                <div className="flex bg-slate-950/20 p-1 rounded-xl flex-wrap">
+                  {[
+                    { id: 'javascript', label: 'JavaScript' },
+                    { id: 'python', label: 'Python' },
+                    { id: 'html_css', label: 'HTML/CSS' },
+                    { id: 'cpp', label: 'C++' }
+                  ].map(langNode => (
+                    <button
+                      key={langNode.id}
+                      onClick={() => {
+                        setSelectedCodeLang(langNode.id);
+                        initializeTest('code', selectedDuration, selectedWordCount, langNode.id, true);
+                      }}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${selectedCodeLang === langNode.id ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : `${theme.textSecondary} hover:text-white`}`}
+                    >
+                      {langNode.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeMode === 'quote' && (
+              <span className={`text-xs font-mono flex items-center space-x-2 ${theme.textSecondary}`}>
+                <Award className="w-4 h-4 text-emerald-400" />
+                <span>{language === 'uz' ? "Allomalar va mutafakkirlar aforizmlari matni yuklandi" : "Inspirational & historical code quotes loaded."}</span>
+              </span>
+            )}
+
+            {activeMode === 'zen' && (
+              <span className={`text-xs font-mono flex items-center space-x-2 ${theme.textSecondary}`}>
+                <CheckCircle className="w-4 h-4 text-cyan-400 fill-cyan-400" />
+                <span>{language === 'uz' ? "Sokin Zen mashqi: Hech qanday taymer va bosimlarsiz yozing" : "Zen state activated. No timer clocks or live metrics to distract your mind."}</span>
+              </span>
+            )}
+          </div>
+
+          {/* Right panel: Custom Themes, Sound Options and Volume Toggle */}
+          <div className="flex flex-wrap items-center justify-end gap-3 self-end md:self-auto">
+            
+            {/* Theme Select Trigger */}
+            <div className="flex items-center space-x-1 bg-slate-950/20 p-1 rounded-xl border border-slate-800/40">
+              <Palette className="w-4 h-4 text-cyan-400 ml-1.5" />
+              <select
+                id="site-theme-selector"
+                value={activeThemeId}
+                onChange={(e) => {
+                  const newTheme = e.target.value as any;
+                  setProfile(prev => ({ ...prev, theme: newTheme }));
+                }}
+                className="bg-transparent text-xs font-bold border-none text-slate-250 py-1 px-1 rounded cursor-pointer outline-none focus:ring-0 [&>option]:bg-slate-900 [&>option]:text-white"
+              >
+                <option value="classic">{language === 'uz' ? "Slate Mavzu" : "Slate Theme"}</option>
+                <option value="dracula">{language === 'uz' ? "Dracula Mavzu" : "Dracula Dark"}</option>
+                <option value="nord">{language === 'uz' ? "Nord Moviy" : "Nordic Frost"}</option>
+                <option value="cyberpunk">{language === 'uz' ? "Kiberpank Neon" : "Cyberpunk"}</option>
+                <option value="retro">{language === 'uz' ? "Krem Qog'oz" : "Retro Cream"}</option>
+              </select>
+            </div>
+
+            {/* Sound Switch Selector Selector */}
+            {soundEnabled && (
+              <div className="flex items-center space-x-1 bg-slate-950/20 p-1 rounded-xl border border-slate-800/40">
+                <span className="text-[10px] uppercase font-bold text-slate-400 font-mono ml-1.5">{language === 'uz' ? "klavish:" : "switch:"}</span>
+                <select
+                  id="key-sound-type-selector"
+                  value={activeSoundType}
+                  onChange={(e) => {
+                    const newSound = e.target.value as any;
+                    setProfile(prev => ({ ...prev, soundType: newSound }));
+                  }}
+                  className="bg-transparent text-[11px] font-mono font-bold border-none text-cyan-400 py-1 px-1 rounded cursor-pointer outline-none focus:ring-0 [&>option]:bg-slate-900 [&>option]:text-white"
+                >
+                  <option value="blue">Cherry Blue (Crisp Click)</option>
+                  <option value="brown">Cherry Brown (Silent tact)</option>
+                  <option value="typewriter">Retro Typewriter</option>
+                  <option value="beep">Digital Beep</option>
+                </select>
+              </div>
+            )}
+
+            {/* Sound Toggle Button */}
             <button
               onClick={() => {
-                clearPracticeKeys();
-                initializeTest(selectedDuration, true);
+                setProfile(prev => ({ ...prev, soundEnabled: !soundEnabled }));
               }}
-              className="px-3 py-1.5 bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-300 cursor-pointer"
+              className={`p-2 rounded-xl border transition-all cursor-pointer ${soundEnabled ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20' : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-white'}`}
+              title={language === 'uz' ? "Tovushlarni sozlash" : "Toggle Clicks Feedback"}
             >
-              Ushbu zaif mashqni bekor qilish
+              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </button>
-          )}
-
-          <button
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            className={`p-2.5 rounded-xl border transition-all cursor-pointer ${soundEnabled ? 'bg-cyan-50 hover:bg-cyan-100 border-cyan-200 text-cyan-600' : 'bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600'}`}
-            title={language === 'uz' ? "Tovush effektlarini sozlash" : "Toggle Sound Feedback"}
-          >
-            {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-          </button>
+          </div>
         </div>
+
       </div>
 
-      {/* Interactive Metrik Bar during test */}
+      {/* 2. REPUTATION REAL-TIME METRIC CARDS */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {/* Real-time WPM speed card */}
-        <div className="bg-slate-900 text-white rounded-2xl p-4 border border-slate-800 shadow-sm flex items-center space-x-3.5">
-          <div className="bg-slate-800 p-2.5 rounded-xl text-cyan-400">
-            <TrendingUp className="w-5 h-5" />
+        
+        {/* Net Speed Card */}
+        <div className={`p-4 rounded-3xl border shadow-md flex items-center space-x-3.5 relative overflow-hidden transition-all ${theme.cardBg} ${theme.border}`}>
+          <div className="bg-cyan-500/10 p-2.5 rounded-2xl text-cyan-500 flex-shrink-0">
+            <TrendingUp className="w-5 h-5 animate-pulse" />
           </div>
           <div>
-            <span className="text-[10px] uppercase font-mono tracking-widest text-slate-400 block">WPM (Net speed)</span>
-            <span className="text-xl font-extrabold tracking-tight font-mono text-cyan-200">
+            <span className={`text-[10px] uppercase font-mono tracking-widest block opacity-70 ${theme.textSecondary}`}>WPM ({language === 'uz' ? "tezlik" : "net speed"})</span>
+            <span className={`text-xl font-black font-mono block ${theme.textPrimary}`}>
               {testActive ? liveWpm : (testFinished ? liveWpm : 0)} <span className="text-xs font-sans text-slate-400">DSS</span>
             </span>
           </div>
         </div>
 
-        {/* Live accuracy rate card */}
-        <div className="bg-slate-900 text-white rounded-2xl p-4 border border-slate-800 shadow-sm flex items-center space-x-3.5">
-          <div className="bg-slate-800 p-2.5 rounded-xl text-emerald-400">
+        {/* Accurracy Percentage */}
+        <div className={`p-4 rounded-3xl border shadow-md flex items-center space-x-3.5 transition-all ${theme.cardBg} ${theme.border}`}>
+          <div className="bg-emerald-500/10 p-2.5 rounded-2xl text-emerald-500 flex-shrink-0">
             <CheckCircle className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[10px] uppercase font-mono tracking-widest text-slate-400 block">Aniqlik %</span>
-            <span className="text-xl font-extrabold tracking-tight font-mono text-emerald-300">
+            <span className={`text-[10px] uppercase font-mono tracking-widest block opacity-70 ${theme.textSecondary}`}>{language === 'uz' ? "Aniqlik %" : "Accuracy %"}</span>
+            <span className={`text-xl font-black font-mono block text-emerald-500`}>
               {testActive ? liveAccuracy : (testFinished ? liveAccuracy : 100)}%
             </span>
           </div>
         </div>
 
-        {/* Correct metrics total letters */}
-        <div className="bg-slate-900 text-white rounded-2xl p-4 border border-slate-800 shadow-sm flex items-center space-x-3.5">
-          <div className="bg-slate-800 p-2.5 rounded-xl text-indigo-400">
-            <Timer className="w-5 h-5" />
+        {/* Mistake Errors Counter */}
+        <div className={`p-4 rounded-3xl border shadow-md flex items-center space-x-3.5 transition-all ${theme.cardBg} ${theme.border}`}>
+          <div className="bg-rose-500/10 p-2.5 rounded-2xl text-rose-500 flex-shrink-0">
+            <AlertCircle className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[10px] uppercase font-mono tracking-widest text-slate-400 block">Xatolar soni</span>
-            <span className="text-xl font-extrabold tracking-tight font-mono text-rose-300">
-              {mistakesCount}
+            <span className={`text-[10px] uppercase font-mono tracking-widest block opacity-70 ${theme.textSecondary}`}>{language === 'uz' ? "Soniya/Xato" : "Mistakes"}</span>
+            <span className={`text-xl font-black font-mono block text-rose-500`}>
+              {mistakesCount} <span className="text-[10px] font-sans text-slate-400">{language === 'uz' ? "xato" : "errs"}</span>
             </span>
           </div>
         </div>
 
-        {/* Active clock circular dial */}
-        <div className="bg-slate-900 text-white rounded-2xl p-4 border border-slate-800 shadow-sm flex items-center space-x-3.5">
-          {/* Circular countdown SVG logic */}
-          <div className="relative w-10 h-10 flex items-center justify-center">
+        {/* Circular Countdown/Timer */}
+        <div className={`p-4 rounded-3xl border shadow-md flex items-center space-x-3.5 transition-all ${theme.cardBg} ${theme.border}`}>
+          <div className="relative w-10 h-10 flex items-center justify-center flex-shrink-0">
             <svg className="w-10 h-10 transform -rotate-90">
+              <circle cx="20" cy="20" r="17" className="stroke-slate-100 dark:stroke-slate-800" strokeWidth="2.5" fill="transparent" />
               <circle
                 cx="20"
                 cy="20"
-                r="18"
-                className="stroke-slate-800"
-                strokeWidth="2.5"
-                fill="transparent"
-              />
-              <circle
-                cx="20"
-                cy="20"
-                r="18"
-                className="stroke-cyan-400 transition-all duration-300"
+                r="17"
+                className="stroke-cyan-500 transition-all duration-300"
                 strokeWidth="3"
                 fill="transparent"
-                strokeDasharray="113"
-                strokeDashoffset={113 - (113 * timeLeft) / selectedDuration}
+                strokeDasharray="106.8"
+                strokeDashoffset={106.8 - (106.8 * timeLeft) / selectedDuration}
               />
             </svg>
-            <span className="absolute text-[10px] font-mono font-bold text-cyan-300">
-              {timeLeft}
-            </span>
+            <span className={`absolute text-[11px] font-mono font-black ${theme.textPrimary}`}>{timeLeft}</span>
           </div>
           <div>
-            <span className="text-[10px] uppercase font-mono tracking-widest text-slate-400 block">Qolgan vaqt</span>
-            <span className="text-sm font-bold font-sans text-slate-300">
-              {timeLeft} soniya
+            <span className={`text-[10px] uppercase font-mono tracking-widest block opacity-70 ${theme.textSecondary}`}>
+              {language === 'uz' ? "Taymer (Qoldi)" : "Time Left"}
+            </span>
+            <span className={`text-xs font-bold font-mono block ${theme.textPrimary}`}>
+              {timeLeft}s / {selectedDuration}s
+              <span className="text-[9px] font-normal text-slate-400 ml-1">({elapsedSeconds}s)</span>
             </span>
           </div>
         </div>
+
       </div>
 
-      {/* Primary interactive monospaced active character sheet */}
+      {/* 3. DYNAMIC WRAPPED TYPING KEYPAD CONTAINER SHEET */}
       {!testFinished ? (
         <div className="relative">
           <div
@@ -491,81 +641,80 @@ export default function SpeedTest({
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             tabIndex={0}
-            className="w-full min-h-[160px] p-6 md:p-8 bg-slate-900 border border-slate-800 shadow-inner rounded-3xl outline-none focus:ring-4 focus:ring-cyan-500/20 text-slate-300 transition-all cursor-pointer relative overflow-hidden"
+            className={`w-full min-h-[190px] p-6 md:p-8 rounded-3xl outline-none duration-300 ${theme.typingBoxBg} focus:ring-4 focus:ring-cyan-500/10 shadow-inner relative transition-colors`}
           >
-            {/* Click-to-activate start overlay with explicit button */}
+            {/* Click to start cover page overlay node */}
             {!isFocused && (
               <div 
                 onClick={() => containerRef.current?.focus()}
-                className="absolute inset-0 z-10 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 text-center cursor-pointer transition-all duration-300"
+                className="absolute inset-0 z-10 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-4 text-center cursor-pointer rounded-3xl transition-opacity animate-fade-in"
               >
-                <div className="bg-slate-900 border border-slate-700/50 p-6 rounded-3xl max-w-sm flex flex-col items-center shadow-2xl animate-fade-in">
-                  <Play className="w-12 h-12 text-cyan-400 fill-cyan-400 animate-pulse mb-3" />
-                  <h4 className="text-xl font-extrabold text-white uppercase tracking-wider mb-2">
-                    {language === 'uz' ? "MASHQNI BOSHLASH" : "ACTIVATE PRACTICE"}
+                <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl max-w-sm flex flex-col items-center shadow-2xl">
+                  <Play className="w-10 h-10 text-cyan-400 fill-cyan-400 animate-pulse mb-3" />
+                  <h4 className="text-lg font-black tracking-wider uppercase mb-1.5 text-white">
+                    {language === 'uz' ? "⚡ KLAVIATURANI FAOL QILISH" : "⚡ ENGAGE KEYBOARD"}
                   </h4>
-                  <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+                  <p className="text-xs text-slate-400 mb-4 leading-normal">
                     {language === 'uz' 
-                      ? "Yozishni boshlash hamda klaviaturangiz darsini boshlash uchun ushbu oyna ustiga bosing yoki quyidagi tugmani kiriting."
-                      : "Click the button below or anywhere inside this box to activate the keyboard and start typing."}
+                      ? "Kompyuteringiz kursorini darslik oyna ustiga bosing va istalgan klavish yordamida yozishni boshlang."
+                      : "Click inside the box or push the start banner button below to prepare your virtual typing keys focus."}
                   </p>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       containerRef.current?.focus();
                     }}
-                    className="px-6 py-2.5 bg-gradient-to-r from-cyan-400 to-indigo-500 hover:from-cyan-300 hover:to-indigo-400 text-slate-950 font-black rounded-xl text-xs hover:scale-105 active:scale-95 transition-all shadow-lg cursor-pointer"
+                    className="px-6 py-2.5 bg-gradient-to-r from-cyan-400 to-indigo-505 text-slate-950 font-extrabold rounded-xl text-xs hover:scale-105 active:scale-95 transition-all shadow-md cursor-pointer"
                   >
-                    {language === 'uz' ? "⚡ BOSHLASH (START)" : "⚡ START PRACTICE"}
+                    {language === 'uz' ? "⚡ BOSHLASH (START)" : "⚡ START TRAINING"}
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Custom Monospaced typography with whole-word wrapping */}
-            <div className="text-2xl md:text-3xl font-mono leading-relaxed tracking-wider select-none text-slate-400 flex flex-wrap gap-x-2 whitespace-pre-wrap text-left antialiased">
+            {/* Structured character matrices text sheet */}
+            <div className="text-xl md:text-2xl font-mono leading-relaxed tracking-wide select-none flex flex-wrap gap-y-2.5 whitespace-pre-wrap text-left antialiased">
               {(() => {
-                // Segment text into whole words, bundling the space character at the end of each word.
-                // This is used for perfect non-splitting, word-by-word responsive text-wrapping layout.
+                // Whole-word bundling for non-orphaned beautiful wrapping on modern small screens
                 const words: { id: number; chars: { char: string; absIndex: number }[] }[] = [];
                 let currentWord: { id: number; chars: { char: string; absIndex: number }[] } = { id: 0, chars: [] };
-                let wordId = 0;
-                
+                let currentWordId = 0;
+
                 for (let i = 0; i < sourceText.length; i++) {
                   const char = sourceText[i];
                   currentWord.chars.push({ char, absIndex: i });
-                  
+
                   if (char === ' ' || char === '\n') {
                     words.push(currentWord);
-                    wordId++;
-                    currentWord = { id: wordId, chars: [] };
+                    currentWordId++;
+                    currentWord = { id: currentWordId, chars: [] };
                   }
                 }
-                
+
                 if (currentWord.chars.length > 0) {
                   words.push(currentWord);
                 }
 
-                return words.map((word) => (
-                  <span key={word.id} className="inline-block whitespace-nowrap">
-                    {word.chars.map(({ char, absIndex }) => {
-                      let charClass = 'text-slate-400 transition-all';
-                      let isCursor = absIndex === charIndex;
+                return words.map(wordObject => (
+                  <span key={wordObject.id} className="inline-block whitespace-nowrap mr-2">
+                    {wordObject.chars.map(({ char, absIndex }) => {
+                      let charClass = "text-slate-500 opacity-60";
+                      const isCursor = absIndex === charIndex;
 
+                      // Correct or wrong state highlights
                       if (absIndex < charIndex) {
                         charClass = typedStatuses[absIndex] === 'correct' 
-                          ? 'text-emerald-400 font-semibold bg-emerald-500/10 rounded-sm' 
-                          : 'text-rose-500 bg-rose-500/15 rounded-sm px-0.5 border border-rose-500/30';
+                          ? `${theme.correctChar}` 
+                          : `${theme.incorrectChar}`;
                       }
 
                       return (
                         <span
                           key={absIndex}
                           ref={isCursor ? activeCharRef : null}
-                          className={`relative inline-block ${charClass} ${isCursor ? 'text-white border-b-2 border-cyan-400' : ''}`}
-                          style={{ minWidth: char === ' ' ? '12px' : 'auto' }}
+                          className={`relative inline-block transition-all ${charClass} ${isCursor ? 'text-cyan-400 border-b-2 border-cyan-400 animate-pulse font-extrabold' : ''}`}
+                          style={{ minWidth: char === ' ' ? '10px' : 'auto' }}
                         >
-                          {/* Blinking actual cursor line on left element border */}
                           {isCursor && (
                             <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-cyan-400 animate-pulse h-full" />
                           )}
@@ -577,119 +726,175 @@ export default function SpeedTest({
                 ));
               })()}
             </div>
+
+            {/* Dynamic Zen Mode special actions bar */}
+            {activeMode === 'zen' && testActive && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="absolute right-4 bottom-4"
+              >
+                <button
+                  onClick={() => finishTest(elapsedSeconds || 1)}
+                  className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs rounded-xl shadow-lg cursor-pointer transition-all"
+                >
+                  {language === 'uz' ? "🏁 Sinovni Tugallash" : "🏁 Finish Session"}
+                </button>
+              </motion.div>
+            )}
+
           </div>
-          
-          <div className="flex items-center justify-between text-xs text-slate-400 mt-2 px-1">
-            <span>Klaviaturada yozayotganda barmoqlaringizga qaramaslikka intiling.</span>
-            <span>Pozitsiya: {charIndex} / {sourceText.length}</span>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400 mt-2 px-1">
+            <span className="flex items-center space-x-1.5 font-mono">
+              <Info className="w-4 h-4 text-cyan-400" />
+              <span>{language === 'uz' ? "Harakat: Klaviaturaga qaramasdan yozing. To'g'ri yozish mushak xotirasini kuchaytiradi." : "Keep fingers straight. Precision drills expand muscle reflexes."}</span>
+            </span>
+            <span className="font-mono text-[11px] bg-slate-100 p-1 px-2 rounded-lg border border-slate-200">
+              {language === 'uz' ? "Oqim" : "Pointer"}: {charIndex} / {sourceText.length}
+            </span>
           </div>
+
         </div>
       ) : (
-        /* Detailed post-test analytical sheet layout card */
+        /* 4. POST-SESSION DETAILED REPORT SHEETS CARD */
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-white border border-slate-200 p-8 rounded-3xl shadow-lg relative overflow-hidden"
+          className={`p-8 rounded-3xl border transition-all text-center space-y-7 relative overflow-hidden ${theme.cardBg}`}
         >
-          {/* Gold sparkles background decor elements */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/5 rounded-full blur-2xl" />
-          <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl" />
+          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/5 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-2xl pointer-events-none" />
 
-          <div className="text-center space-y-6">
-            <div className="mx-auto w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-500">
-              <CheckCircle className="w-8 h-8" />
-            </div>
-
-            <div className="space-y-1">
-              <h3 className="text-3xl font-black text-slate-800 tracking-tight">
-                Sinov Muvaffaqiyatli Yakunlandi!
-              </h3>
-              <p className="text-sm text-slate-500 max-w-md mx-auto">
-                Siz {selectedDuration / 60} daqiqalik yozish sinovini to'liq bajardingiz. Natijangiz statistika boshqaruv paneliga kiritildi.
-              </p>
-            </div>
-
-            {/* Performance metrics breakdown bento grids */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto pt-4">
-              <div className="bg-slate-50 border border-slate-200/85 relative rounded-2xl p-4 text-center">
-                <span className="text-[10px] font-mono tracking-wider text-slate-400 uppercase block">Tezlik</span>
-                <span className="text-3xl font-black text-slate-900 font-mono">
-                  {liveWpm} <span className="text-xs font-sans text-slate-500">WPM</span>
-                </span>
-                <span className="block text-[10px] text-slate-500 mt-1">Daqiqada so'zlar</span>
-              </div>
-
-              <div className="bg-slate-50 border border-slate-200/85 relative rounded-2xl p-4 text-center">
-                <span className="text-[10px] font-mono tracking-wider text-slate-400 uppercase block">Aniq Harflar</span>
-                <span className="text-3xl font-black text-slate-900 font-mono">
-                  {liveAccuracy}%
-                </span>
-                <span className="block text-[10px] text-slate-500 mt-1">Imlo foizi</span>
-              </div>
-
-              <div className="bg-slate-50 border border-slate-200/85 relative rounded-2xl p-4 text-center">
-                <span className="text-[10px] font-mono tracking-wider text-slate-400 uppercase block">Xatoliklar</span>
-                <span className="text-3xl font-black text-rose-600 font-mono">
-                  {mistakesCount}
-                </span>
-                <span className="block text-[10px] text-slate-500 mt-1">Klaviaturadagi xato</span>
-              </div>
-
-              <div className="bg-slate-50 border border-slate-200/85 relative rounded-2xl p-4 text-center">
-                <span className="text-[10px] font-mono tracking-wider text-slate-400 uppercase block">Jarayon</span>
-                <span className="text-3xl font-black text-amber-500 font-mono inline-flex items-center space-x-1 justify-center">
-                  <span>
-                    {liveAccuracy >= 95 ? "⭐⭐⭐" : (liveAccuracy >= 85 ? "⭐⭐" : "⭐")}
-                  </span>
-                </span>
-                <span className="block text-[10px] text-slate-500 mt-1">Muvaffaqiyat bahosi</span>
-              </div>
-            </div>
-
-            {/* Actions for repeating tests */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6 max-w-sm mx-auto">
-              <button
-                id="speed-test-restart-button"
-                onClick={() => initializeTest(selectedDuration, true)}
-                className="w-full py-4.5 bg-slate-900 hover:bg-slate-800 text-cyan-300 font-bold text-sm rounded-2xl flex items-center justify-center space-x-2 transition-all cursor-pointer shadow-md"
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span>Yangi test boshlash</span>
-              </button>
-            </div>
+          <div className="mx-auto w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-sm shadow-emerald-450/10">
+            <CheckCircle className="w-8 h-8 animate-bounce" />
           </div>
+
+          <div className="space-y-1">
+            <h3 className={`text-3xl font-black tracking-tight font-sans ${theme.textPrimary}`}>
+              {language === 'uz' ? "Muvaffaqiyatli Tamomlandi!" : "Evaluation Complete!"}
+            </h3>
+            <p className={`text-sm max-w-md mx-auto leading-relaxed ${theme.textSecondary}`}>
+              {language === 'uz' 
+                ? "Yozish mashg'uloti muvaffaqiyatli yakunlandi. Natijangiz profil statistikasiga qo'shildi va millisekundli dactology saqlandi." 
+                : "You completed the typing exercise. Your performance metrics were compiled and logged under secure browser caches."}
+            </p>
+          </div>
+
+          {/* Bento analytics grids */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto pt-2">
+            
+            <div className={`border rounded-2xl p-4 text-center transition-all ${theme.typingBoxBg} ${theme.border}`}>
+              <span className={`text-[10px] font-mono tracking-wider uppercase block ${theme.textSecondary}`}>{language === 'uz' ? "Tezlik" : "Speed"}</span>
+              <span className="text-3xl font-black text-cyan-400 font-mono">
+                {liveWpm} <span className="text-xs font-sans text-slate-500">WPM</span>
+              </span>
+              <span className={`block text-[10px] mt-1 ${theme.textSecondary}`}>{language === 'uz' ? "so'z / daqiqa" : "Words per Min"}</span>
+            </div>
+
+            <div className={`border rounded-2xl p-4 text-center transition-all ${theme.typingBoxBg} ${theme.border}`}>
+              <span className={`text-[10px] font-mono tracking-wider uppercase block ${theme.textSecondary}`}>{language === 'uz' ? "Imlo" : "Accuracy"}</span>
+              <span className="text-3xl font-black text-emerald-450 font-mono">
+                {liveAccuracy}%
+              </span>
+              <span className={`block text-[10px] mt-1 ${theme.textSecondary}`}>{language === 'uz' ? "to'g'rilik foizi" : "Letter precision"}</span>
+            </div>
+
+            <div className={`border rounded-2xl p-4 text-center transition-all ${theme.typingBoxBg} ${theme.border}`}>
+              <span className={`text-[10px] font-mono tracking-wider uppercase block ${theme.textSecondary}`}>{language === 'uz' ? "Bugungi Xato" : "Total Errs"}</span>
+              <span className="text-3xl font-black text-rose-450 font-mono">
+                {mistakesCount}
+              </span>
+              <span className={`block text-[10px] mt-1 ${theme.textSecondary}`}>{language === 'uz' ? "bosilgan xato" : "Keyboard faults"}</span>
+            </div>
+
+            <div className={`border rounded-2xl p-4 text-center transition-all ${theme.typingBoxBg} ${theme.border}`}>
+              <span className={`text-[10px] font-mono tracking-wider uppercase block ${theme.textSecondary}`}>{language === 'uz' ? "Yutuq bahosi" : "Star rating"}</span>
+              <span className="text-2xl font-black text-amber-500 font-mono inline-flex items-center space-x-0.5 justify-center mt-1">
+                <span>{liveAccuracy >= 98 && liveWpm >= 40 ? "⭐⭐⭐" : (liveAccuracy >= 90 ? "⭐⭐" : "⭐")}</span>
+              </span>
+              <span className={`block text-[10px] mt-1 ${theme.textSecondary}`}>{language === 'uz' ? "tajriba bahosi" : "Level grading"}</span>
+            </div>
+
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4 max-w-sm mx-auto">
+            <button
+              id="speed-test-restart-button"
+              onClick={() => initializeTest(activeMode, selectedDuration, selectedWordCount, selectedCodeLang, true)}
+              className="w-full py-3.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-sm rounded-2xl flex items-center justify-center space-x-2 transition-all cursor-pointer shadow-md shadow-cyan-500/20"
+            >
+              <RotateCcw className="w-4 h-4 text-slate-950" />
+              <span>{language === 'uz' ? "Yangi test boshlash" : "Start Fresh Trial"}</span>
+            </button>
+          </div>
+
         </motion.div>
       )}
 
-      {/* Safe confirmation alerts built inside react state to prevent sandbox problems with native prompts */}
+      {/* 5. METRIC UPDATE DESKTOP SAFETY ALERT */}
+      <div className={`p-5 rounded-3xl border flex flex-col sm:flex-row items-center justify-between gap-4 transition-all ${theme.cardBg} ${theme.border}`}>
+        <div className="flex items-start space-x-3.5">
+          <div className="bg-slate-100 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 p-2.5 rounded-xl text-emerald-400 flex-shrink-0">
+            <History className="w-5 h-5 animate-spin-slow" />
+          </div>
+          <div className="space-y-0.5 text-left">
+            <h5 className={`text-sm font-bold uppercase tracking-wider flex items-center space-x-2 ${theme.textPrimary}`}>
+              <span>{language === 'uz' ? "DK-Typing Ma'lumotlarni Himoyalash Tizimi" : "DK-Typing Local Security"}</span>
+              <span className="text-[10px] bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 font-mono px-2 py-0.5 rounded-full uppercase font-bold">
+                {language === 'uz' ? "faol" : "secured"}
+              </span>
+            </h5>
+            <p className={`text-xs leading-normal max-w-2xl ${theme.textSecondary}`}>
+              {language === 'uz'
+                ? "DK-Typing yangilanganda va sayt yangi versiyasi serverga yuklanganda barcha yutuqlaringiz, ismingiz va darslar saqlab qolinadi (LocalStorage sinxron hisobi). Hech qanday natija o'chib ketmaydi."
+                : "Your personal statistics are guarded perfectly inside your device's persistent LocalStorage cache. System hot-reloads will never clear your results structure."}
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => {
+            // Trigger local refresh representing the update/yangilash functionality without losing data
+            window.location.reload();
+          }}
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center space-x-2 whitespace-nowrap border ${theme.accentHover}`}
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          <span>{language === 'uz' ? "Hozir Yangilash" : "Reload and Check"}</span>
+        </button>
+      </div>
+
+      {/* Standard warning modals if changing values on live sessions */}
       {showConfigAlert && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full border border-slate-150 shadow-2xl text-center space-y-4">
-            <div className="mx-auto w-12 h-12 bg-rose-50 border border-rose-200 text-rose-500 rounded-full flex items-center justify-center">
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 rounded-3xl p-6 md:p-8 max-w-md w-full border border-slate-800 shadow-2xl text-center space-y-4">
+            <div className="mx-auto w-12 h-12 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-full flex items-center justify-center">
               <AlertCircle className="w-6 h-6" />
             </div>
 
-            <h4 className="text-lg font-bold text-slate-900">Mashqni to'xtatishni istaysizmi?</h4>
+            <h4 className="text-lg font-bold text-white">Yozish mashqini to'xtatishni istaysizmi?</h4>
             
-            <p className="text-sm text-slate-500">
-              Faol tezlik sinov jarayoni joriy vaqtda davom etmoqda. Agar hozir parametrni o'zgartirsangiz, ushbu test natijasi saqlanmaydi.
+            <p className="text-sm text-slate-400">
+              Faol tezlik testi hozirda davom etmoqda. Agar hozir rejimni o'zgartirsangiz, ushbu sessiya natijalari saqlanmaydi.
             </p>
 
             <div className="flex space-x-3 pt-2">
               <button
                 onClick={() => {
                   const targetVal = showConfigAlert.value;
-                  setSelectedDuration(targetVal);
-                  initializeTest(targetVal, true);
+                  setActiveMode(targetVal);
+                  initializeTest(targetVal, selectedDuration, selectedWordCount, selectedCodeLang, true);
                   setShowConfigAlert(null);
                 }}
                 className="flex-1 py-3 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-2xl text-sm transition-all cursor-pointer"
               >
-                Ha, qat'iy boshlash
+                Ha, to'xtatilsin
               </button>
               <button
                 onClick={() => setShowConfigAlert(null)}
-                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-sm transition-all cursor-pointer"
+                className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-2xl text-sm transition-all cursor-pointer text-white"
               >
                 Bekor qilish
               </button>
@@ -700,4 +905,12 @@ export default function SpeedTest({
 
     </div>
   );
+}
+
+// Word calculations helper for exact limits feedback
+function wordCountLeft(fullText: string, cursorIndex: number): number {
+  if (!fullText) return 0;
+  const remainingPart = fullText.slice(cursorIndex).trim();
+  if (!remainingPart) return 0;
+  return remainingPart.split(/\s+/).length;
 }

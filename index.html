@@ -3,23 +3,87 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DK-Typing - Professional Yozish Tezligi Platformasi</title>
-    <!-- Web app manifest integration -->
+    
+    <!-- Primary SEO Metadata -->
+    <title>DK-Typing - Doniyor Kamolov Tomonidan Yaratilgan Professional Yozish Tezligi Platformasi (Typing Test)</title>
+    <meta name="description" content="DK-Typing - Doniyor Kamolov tomonidan yaratilgan professional yozish tezligi va klaviatura akademiyasi platformasi. O'zbek va ingliz tillarida tez va to'g'ri yozishni o'rganing, klaviatura xatolarini tahlil qiling va WPM tezligingizni oshiring." />
+    <meta name="keywords" content="yozish, yozish tezligi, yozishni o'rganish, klaviatura darslari, typing test, dars, doniyor kamolov, uzbek typing, uzbek keyboard, mukammal yozish, klaviatura mashqi, tez yozish, monkeytype, dk-typing, yozish tezligini oshirish, online typing, touch typing, dasturchilar klaviaturasi" />
+    <meta name="author" content="Doniyor Kamolov" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://dk-typing.vercel.app/" />
+
+    <!-- Open Graph / Facebook SEO -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="DK-Typing - Doniyor Kamolov - Professional Yozish Tezligi Akademiyasi" />
+    <meta property="og:description" content="Kompyuter yoki telefonda tez yozish darslari va real-vaqt test platformasi. Doniyor Kamolov tomonidan yaratilgan." />
+    <meta property="og:url" content="https://dk-typing.vercel.app/" />
+    <meta property="og:image" content="/icon.png" />
+
+    <!-- Twitter Card SEO -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="DK-Typing - Professional Yozish Tezligi Platformasi" />
+    <meta name="twitter:description" content="Doniyor Kamolov tomonidan yaratilgan professional yozish tezligi tizimi. Klaviaturada darsliklar va imlo tahlili." />
+    <meta name="twitter:image" content="/icon.png" />
+
+    <!-- Web app manifest and PWA styling -->
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#130CB7" />
+    <meta name="theme-color" content="#0f172a" />
+    
     <!-- Favicon link -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>" />
+
+    <!-- Google Structured Search Schema (JSON-LD) for Search Console Peak Indexing -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "DK-Typing",
+        "operatingSystem": "All",
+        "applicationCategory": "EducationalApplication",
+        "description": "Professional keyboard typing speed test and keyboard training academy platform tailored for Uzbek and English layouts.",
+        "creator": {
+          "@type": "Person",
+          "name": "Doniyor Kamolov",
+          "email": "doniyor.kamolov0929@gmail.com",
+          "jobTitle": "Full-Stack Software Developer"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "name": "Doniyor Kamolov Projects"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    </script>
   </head>
   <body class="bg-slate-50 antialiased">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
 
-    <!-- Register PWA Service Worker -->
+    <!-- Force Unregister Stale PWA Service Worker & Purge Caches to show latest update -->
     <script>
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .catch(err => console.log('Service worker registration failed:', err));
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (let registration of registrations) {
+            registration.unregister().then(function(boolean) {
+              if (boolean) {
+                console.log('Stale service worker unregistered successfully.');
+                // Only reload if we actually unregistered to prevent infinite loops
+                window.location.reload();
+              }
+            });
+          }
+        });
+      }
+      if ('caches' in window) {
+        caches.keys().then(function(names) {
+          for (let name of names) {
+            caches.delete(name);
+            console.log('Stale cache deleted: ' + name);
+          }
         });
       }
     </script>

@@ -23,7 +23,10 @@ export const INITIAL_PROFILE: UserProfile = {
   lessonAccuracy: {},
   keyErrors: {},
   keyTotal: {},
-  isAlternativeCycle: false
+  isAlternativeCycle: false,
+  theme: 'classic',
+  soundEnabled: true,
+  soundType: 'blue'
 };
 
 // Safe access to localStorage

@@ -17,14 +17,16 @@ import {
   RotateCcw,
   Monitor,
   Smartphone,
-  ChevronRight
+  ChevronRight,
+  Trophy
 } from 'lucide-react';
 import { UserProfile } from '../types';
+import { THEMES } from '../utils/theme';
 
 interface SidebarProps {
   profile: UserProfile;
-  activeTab: 'speedtest' | 'academy' | 'dashboard';
-  setActiveTab: (tab: 'speedtest' | 'academy' | 'dashboard') => void;
+  activeTab: 'speedtest' | 'academy' | 'dashboard' | 'leaderboard';
+  setActiveTab: (tab: 'speedtest' | 'academy' | 'dashboard' | 'leaderboard') => void;
   language: 'uz' | 'en';
   setLanguage: (lang: 'uz' | 'en') => void;
   onResetTrigger: () => void;
@@ -88,8 +90,11 @@ export default function Sidebar({
     }
   };
 
+  const activeThemeId = profile.theme || 'classic';
+  const theme = THEMES[activeThemeId] || THEMES.classic;
+
   return (
-    <div className="w-full lg:w-80 bg-slate-900 text-white flex flex-col border-r border-slate-800 flex-shrink-0">
+    <div className={`w-full lg:w-80 ${theme.sidebarBg} text-white flex flex-col border-r border-slate-800 flex-shrink-0 transition-colors duration-300`}>
       
       {/* Brand Header */}
       <div className="p-6 border-b border-slate-800 flex items-center justify-between">
@@ -196,6 +201,17 @@ export default function Sidebar({
             <span>{language === 'uz' ? "Analitika va Statistika" : "Analytics & Board"}</span>
           </div>
           <ChevronRight className={`w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity ${activeTab === 'dashboard' ? 'text-slate-950' : 'text-slate-400'}`} />
+        </button>
+
+        <button
+          onClick={() => setActiveTab('leaderboard')}
+          className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all font-sans font-medium text-sm text-left group cursor-pointer ${activeTab === 'leaderboard' ? 'bg-cyan-500 text-slate-950 font-bold shadow-lg shadow-cyan-500/10' : 'text-slate-300 hover:bg-slate-800/50'}`}
+        >
+          <div className="flex items-center space-x-3">
+            <Trophy className="w-5 h-5 flex-shrink-0" />
+            <span>{language === 'uz' ? "Reyting" : "Leaderboard"}</span>
+          </div>
+          <ChevronRight className={`w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity ${activeTab === 'leaderboard' ? 'text-slate-950' : 'text-slate-400'}`} />
         </button>
 
         {/* Stars counter item */}
