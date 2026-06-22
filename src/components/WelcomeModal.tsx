@@ -64,10 +64,12 @@ export default function WelcomeModal({ onComplete, language, setLanguage }: Welc
       }
     } catch (e: any) {
       console.error(e);
+      // Format the error message for better debugging
+      const errorMessage = e?.message || "Noma'lum xatolik";
       setError(
         language === 'uz'
-          ? "Google orqali kirishda xatolik yuz berdi. Iltimos, qayta urining."
-          : "An error occurred during Google Sign-In. Please try again."
+          ? `Google orqali kirishda xatolik yuz berdi: ${errorMessage}`
+          : `An error occurred during Google Sign-In: ${errorMessage}`
       );
     } finally {
       setIsLgInLoading(false);
