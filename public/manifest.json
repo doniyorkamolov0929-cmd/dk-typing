@@ -8,15 +8,15 @@
   "description": "Yozish tezligini sinash va o'qitish platformasi",
   "icons": [
     {
-      "src": "/icon.png",
+      "src": "/favicon.jpg",
       "sizes": "192x192",
-      "type": "image/png",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon.png",
+      "src": "/favicon.jpg",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     }
   ]
