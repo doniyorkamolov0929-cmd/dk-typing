@@ -4,6 +4,13 @@
  */
 
 export interface UserProfile {
+  id?: string; // Device/Installation identity for rankings database
+  uid?: string; // Firebase Authentication UID
+  accountId?: string; // Custom 5 character 
+  friends?: string[];
+  authType?: 'google' | 'guest'; // Authentication type
+  email?: string; // Authenticated user email
+  photoURL?: string; // Profile photo URL from Google Auth
   fullName: string;
   streak: number;
   lastActiveDate: string; // YYYY-MM-DD

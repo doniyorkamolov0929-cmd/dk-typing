@@ -18,18 +18,20 @@ import {
   Monitor,
   Smartphone,
   ChevronRight,
-  Trophy
+  Trophy,
+  LogOut
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { THEMES } from '../utils/theme';
 
 interface SidebarProps {
   profile: UserProfile;
-  activeTab: 'speedtest' | 'academy' | 'dashboard' | 'leaderboard';
-  setActiveTab: (tab: 'speedtest' | 'academy' | 'dashboard' | 'leaderboard') => void;
+  activeTab: 'speedtest' | 'academy' | 'dashboard' | 'leaderboard' | 'profile';
+  setActiveTab: (tab: 'speedtest' | 'academy' | 'dashboard' | 'leaderboard' | 'profile') => void;
   language: 'uz' | 'en';
   setLanguage: (lang: 'uz' | 'en') => void;
   onResetTrigger: () => void;
+  onSignOut?: () => void;
 }
 
 export default function Sidebar({
@@ -38,7 +40,8 @@ export default function Sidebar({
   setActiveTab,
   language,
   setLanguage,
-  onResetTrigger
+  onResetTrigger,
+  onSignOut
 }: SidebarProps) {
   // PWA state tracking
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -137,27 +140,47 @@ export default function Sidebar({
 
       {/* User Mini Profile Information Block */}
       {profile.fullName && (
-        <div className="mx-4 mt-6 p-4 bg-slate-950/40 border border-slate-800/80 rounded-2xl flex items-center justify-between">
-          <div className="flex items-center space-x-3 overflow-hidden">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-              {profile.fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+        <div className="mx-4 mt-6 p-4 bg-slate-950/40 border border-slate-800/80 rounded-2xl flex flex-col space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3 overflow-hidden">
+              {profile.photoURL ? (
+                <img 
+                  src={profile.photoURL} 
+                  referrerPolicy="no-referrer" 
+                  alt={profile.fullName} 
+                  className="w-10 h-10 rounded-xl object-cover flex-shrink-0" 
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                  {profile.fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                </div>
+              )}
+              <div className="overflow-hidden">
+                <span className="text-[10px] uppercase font-mono tracking-wider font-extrabold text-cyan-400">
+                  {profile.authType === 'google' ? "Google" : "Mehmon"}
+                </span>
+                <p className="text-sm font-bold truncate text-white max-w-[135px]">
+                  {profile.fullName}
+                </p>
+              </div>
             </div>
-            <div className="overflow-hidden">
-              <h4 className="text-xs text-slate-400 uppercase tracking-widest font-semibold font-sans">
-                O'quvchi
-              </h4>
-              <p className="text-sm font-bold truncate text-white max-w-[130px]">
-                {profile.fullName}
-              </p>
+
+            <div className="flex items-center space-x-1.5 bg-amber-500/10 border border-amber-500/25 px-2 py-1.5 rounded-xl flex-shrink-0">
+              <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500 animate-pulse" />
+              <span className="text-xs font-extrabold text-amber-400 font-mono">
+                {profile.streak}
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2 bg-amber-500/10 border border-amber-500/25 px-2.5 py-1.5 rounded-xl flex-shrink-0">
-            <Flame className="w-4 h-4 text-amber-500 fill-amber-500 animate-pulse" />
-            <span className="text-xs font-extrabold text-amber-400 font-mono">
-              {profile.streak}
-            </span>
-          </div>
+          {/* Quick inline auth signout or signin links */}
+          <button
+            onClick={() => setActiveTab('profile')}
+            className="w-full py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-850 hover:border-slate-800 transition-all rounded-xl text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center justify-center space-x-1.5 cursor-pointer mt-1"
+          >
+            <User className="w-3 h-3" />
+            <span>{language === 'uz' ? "Profilga kirish" : "Go to Profile"}</span>
+          </button>
         </div>
       )}
 

@@ -4,9 +4,9 @@
  */
 
 export interface Lesson {
-  id: number; // 1 to 60 or programming 101 to 130
-  stage: 'boshlangich' | 'orta' | 'mukammal' | 'frontend' | 'backend' | 'database';
-  number: number; // 1 to 20
+  id: number; // 1 to 250
+  stage: 'boshlangich' | 'orta' | 'mukammal' | 'murakkab_sozlar' | 'oddiy_matnlar' | 'professional_matnlar' | 'frontend' | 'backend' | 'database' | 'ai_integration' | 'data_structures' | 'system_design';
+  number: number; // 1 to 30
   titleUz: string;
   titleEn: string;
   targetKeys: string;
@@ -426,10 +426,177 @@ rawLessons[59] = { // lesson 60
 };
 
 
+// --- DYNAMIC GENERATOR FOR EXTRA STAGES (61-150) ---
+const complexWordsUz = [
+  "konstruksiyalash", "transformatsiya", "mukammallashtirish", "elektromagnit", "respublikasi", "sivilizatsiyalar", "baynalmilalchi", "boshqaruvchilik", "dasturlashtirish", "tadqiqotchilik", "tajribasizligimiz", "axborotlashtirish", "samaradorlik", "shaxsiylashtirish", "umuminsoniy", "rivojlantirish", "investitsiyalash", "kooperatsiyalash", "tizimlashtirish", "sinonimlashtirish", "xavfsizlantirish", "qiziquvchanlik", "hayrixohlik", "shijoatlanmoq", "shafqatsizlarcha", "shovqin-suron", "ijtimoiy-siyosiy", "tashkilotlararo", "foydalanuvchilar", "tarbiyalanuvchi"
+];
+const complexWordsEn = [
+  "institutionalized", "characterization", "accomplishments", "supercalifragilistic", "procrastination", "unbelievable", "multidimensional", "misunderstandings", "photosynthesis", "extraordinary", "differentiation", "unconstitutionally", "entrepreneurship", "biodegradability", "hyperventilation", "industrialization", "cryptography", "synchronization", "vulnerability", "interoperability", "unpredictability", "infrastructure", "modularization", "object-oriented", "asynchronous", "representation", "implementation", "orchestration", "collaboration", "confidentiality"
+];
+
+const simpleTextsUz = [
+  "Yaxshi xulq - insonning eng guzal ziynatidir va uning odobini kursatadi.",
+  "Har qanday urinish o'rganish va izlanish orqali yuqori maqsadga yetaklaydi.",
+  "Dunyoda muvaffaqiyatga erishish uchun tinimsiz mehnat qilish va sabr kerak.",
+  "Bilim yulduz kabi qorong'u yo'llarni yorituvchi yuksak mayoq hisoblanadi.",
+  "Vaqt boylikdir, uni faqat foydali va yaxshi ishlarga sarflash lozimdir.",
+  "Do'stlik samimiy ishonch va uzaro hurmat asosida quriladigan muqaddas tuyg'u.",
+  "Dasturlash dunyoni yaxshi tomonga o'zgartirish uchun eng kuchli vosita.",
+  "Kitob mutolaasi fikrlash doirasini kengaytirib, yangi ufqlarni ochadi.",
+  "Ozoda va tartibli hayot insonning salomatligi va xotirjamligi kalitidir.",
+  "Kechagi xatolar bugungi donolikni shakllantiruvchi qimmatli saboqlardir.",
+  "Orzu qilishdan hech qachon to'xtamang, chunki orzular haqiqatga aylanadi.",
+  "Sog'lom tanda sog'lom aql va tiniq fikrlar doimo hamroh bo'lib yuradi.",
+  "Bizning kelajagimiz bugun qilayotgan ishlarimiz va qarorlarimizga bog'liq.",
+  "Har bir yangi kun bizga o'z ustimizda ishlash uchun imkoniyat yaratadi.",
+  "Oila - muqaddas maskan, undagi tinchlik eng katta baxtdir.",
+  "Inson qalbining go'zalligi uning gapi va qilgan yaxshi amallarida.",
+  "O'z oldiga ulkan maqsadlarni qo'ygan insonlardan aslo chekinmaslik talab etiladi.",
+  "Saxovatli bo'lish qalbdagi g'uborlarni tozalaydi va quvonch bag'ishlaydi.",
+  "Tabiatni asrash har bir insonning burchi va kelajak oldidagi mas'uliyatidir.",
+  "Ijodkorlik va yangilikka intilish hayotni yanada go'zal va qiziqarli qiladi.",
+  "Haqiqiy kuch jismoniy quvvatda emas, balki ruhan kuchli va sabrli bo'lishda.",
+  "Tezkor yozish barmoqlarning eng ajoyib raqsi va aqlimizning aksidir.",
+  "Biz birgalikda buyuk ishlarni amalga oshirishga doimo qodirmiz.",
+  "Har qanday qiyinchilik ortida bir yengillik va keng eshiklar doimo bor.",
+  "Yoshlikda o'rganilgan bilim toshga o'yilgan naqsh kabi umrbod qoladi.",
+  "Kamtarlik insonni ulug'laydi, mutakabbirlik esa uni tubanlikka tortadi.",
+  "Dasturlashni o'rganish qiyin bo'lishi mumkin, ammo natijasi shirin va porloq.",
+  "Oz-ozdan o'rganib borish pirovardida ulkan yutuqlarga poydevor yaratadi.",
+  "Xushmuomalalik barcha insonlar qalbidan joy olishning eng oson yo'lidir.",
+  "Bugun boshlang va ertaga siz o'zingizga rahmat aytishingiz aniqdir."
+];
+
+const simpleTextsEn = [
+  "A journey of a thousand miles begins with a single, small and simple step.",
+  "Success is not final, failure is not fatal: it is the courage to continue.",
+  "Believe you can and you are already halfway there to your ultimate goal.",
+  "The only way to do great work is to love what you do every single day.",
+  "Consistency is the secret key that unlocks the door to ultimate master skills.",
+  "Learning to type fast builds a deep connection between the mind and keyboard.",
+  "Your time of practice will pay off in incredible speed and total confidence.",
+  "Stay foolish, stay hungry, and never stop exploring new fields of science.",
+  "Positive thinking attracts beautiful energy and wonderful opportunities.",
+  "Focus on progress, not perfection; every small victory is worth celebrating.",
+  "Kindness is a language which the deaf can hear and the blind can see clearly.",
+  "The future belongs to those who believe in the beauty of their dreams.",
+  "Great things are done by a series of small things brought together over time.",
+  "Education is the most powerful weapon which you can use to change the world.",
+  "In the middle of every difficulty lies a beautiful and hidden opportunity.",
+  "The best way to predict your future is to create it with your own hands.",
+  "Happiness is not something ready made; it comes from your own kind actions.",
+  "Write code as if the person maintaining it is a violent psychopath.",
+  "Simplicity is the ultimate sophistication in both life and software design.",
+  "Every expert was once a beginner who refused to give up on their goals.",
+  "Do not count the days, make the days count towards your dream life.",
+  "A warm smile is the universal language of kindness across all nations.",
+  "Your potential is endless, the only limits are the ones you set in mind.",
+  "Gratitude turns what we have into more than enough and brings instant peace.",
+  "Make today so wonderful that yesterday gets jealous of your active life.",
+  "Intelligence is the ability to adapt to change quickly and effectively.",
+  "Continuous learning keeps your mind young, sharp, and ready to fly.",
+  "Good things come to those who work hard and never lose their golden spark.",
+  "Every master key starts as a raw block of metal waiting to be shaped.",
+  "You are doing amazing things today, keep pushing forward into the light."
+];
+
+const profTextsUz = [
+  "Axborot texnologiyalari hayotimizning har bir jabhasida chuqur ildiz otmoqda. Dasturchi sifatida biz yozayotgan har bir kod dunyoning intellektual salohiyatini oshirishga va muammolarni bartaraf etishga xizmat qiladi.",
+  "Zamonaviy veb-ilovalarni ishlab chiqish nafaqat qulay interfeys yaratish, balki foydalanuvchi ma'lumotlarining xavfsizligini ta'minlashni ham talab etadi. Shifrlash va xavfsiz protokollar barqarorlik kafolatidir.",
+  "Tizimlar arxitekturasi va ma'lumotlar omborining to'g'ri loyihalashtirilishi kelajakda dasturning millionlab foydalanuvchilarga xizmat ko'rsata olish qobiliyatini belgilaydi. Optimizatsiya muhim maqsad.",
+  "Sun'iy intellekt va neyron tarmoqlari insoniyat imkoniyatlarini yangi bosqichga olib chiqdi. Endilikda biz mashinalarga nafaqat buyruq berishni, balki ularni mantiqiy fikrlashga o'rgata olyapmiz.",
+  "Algoritmlarni chuqur o'rganish sizga har qanday qiyin masalani minimal xotira va maksimal tezlik yordamida hal qilish imkonini beradi. Har doim kodning ishlash murakkabligini tahlil qiling.",
+  "Jamoaviy hamkorlik va kodning tushunarli yozilishi yirik loyihalar hayotiyligini belgilaydi. Clean Code tamoyillari dasturchilar o'rtasidagi o'zaro ishonchni va rivojlanishni mustahkamlaydi.",
+  "Bulutli texnologiyalar va konteynerlashtirish global miqyosda serverlarni bir necha daqiqa ichida ishga tushirish va boshqarish imkonini yaratdi. Bu tezkorlik va moslashuvchanlik asridir.",
+  "Dasturiy mahsulot yaratishda sifatni nazorat qilish va doimiy testlash jarayoni xatolar sonini sezilarli darajada kamaytiradi. Testlar siz yozgan kodning ishonchli asosi va qalqonidir.",
+  "Doimiy izlanish, darslar va yangi texnologiyalarni o'zlashtirish dasturchini bozorda raqobatbardosh qiladi. O'rganishdan to'xtagan kun taraqqiyot to'xtagan kundir.",
+  "Muvaffaqiyatli startaplar faollik va tezkor qarorlar qabul qilish orqali bozorlarni zabt etadi. G'oyaning o'zi hech narsa emas, uni amalga oshirish va tajriba esa haqiqiy boylikdir."
+];
+
+const profTextsEn = [
+  "Information technology is deeply rooting itself in every single aspect of our lives. As software engineers, every line of code we write serves to increase the intellectual potential of our world.",
+  "Modern web application development requires not only creating elegant interfaces but also ensuring the absolute security of user data. Encryptions and secure protocols guarantee stability.",
+  "Proper system architecture and database design determine whether an application can successfully scale to serve millions of active users in the future. Optimization remains our core target.",
+  "Artificial intelligence and neural networks have pushed human capabilities to a completely new boundary. We are now training machines to reason logically, rather than just execute commands.",
+  "Direct dive into algorithms gives you the power to solve complex problems with minimal memory footprints and maximum execution speed. Always analyze the time complexity of your algorithms.",
+  "Team collaboration and self-documenting code determine the long-term viability of enterprise projects. Clean Code principles strengthen mutual trust and double the pace of development.",
+  "Cloud computing and containerization have enabled the global deployment and orchestrations of complex servers within minutes. We are living in an era of pure speed and high agility.",
+  "Rigorous quality assurance and continuous testing pipelines significantly decrease the rate of runtime crashes. Tests are the absolute shield and structural foundation of your package.",
+  "Continuous research and active technical learning keep software developers competitive in the global market. The day we stop learning is the very day our technological growth terminates.",
+  "Successful startups conquer competitive markets through rapid iterations and decisive moves. An idea alone is nothing; supreme execution and rigorous testing are the true golden treasure."
+];
+
+// 4. `murakkab_sozlar` (61 - 90, 30 exercises)
+for (let i = 1; i <= 30; i++) {
+  const w1 = complexWordsUz[(i - 1) % complexWordsUz.length];
+  const w2 = complexWordsUz[i % complexWordsUz.length];
+  const w3 = complexWordsUz[(i + 1) % complexWordsUz.length];
+  const we1 = complexWordsEn[(i - 1) % complexWordsEn.length];
+  const we2 = complexWordsEn[i % complexWordsEn.length];
+  const we3 = complexWordsEn[(i + 1) % complexWordsEn.length];
+
+  rawLessons.push({
+    id: 60 + i,
+    number: i,
+    stage: 'murakkab_sozlar',
+    titleUz: `Murakkab so'zlar: Mashq ${i}`,
+    titleEn: `Complex Words: Lesson ${i}`,
+    targetKeys: "Complex combinations",
+    textUz: `${w1} ${w2} ${w3} ${w1} ${w2} ${w3}`,
+    textEn: `${we1} ${we2} ${we3} ${we1} ${we2} ${we3}`,
+    altTextUz: `${w3} ${w2} ${w1} ${w3} ${w2} ${w1}`,
+    altTextEn: `${we3} ${we2} ${we1} ${we3} ${we2} ${we1}`,
+    descriptionUz: "Klaviatura mahoratingizni oshirish uchun murakkab so'zlar va harf birikmalarini tinimsiz mashq qiling.",
+    descriptionEn: "Type complex multisyllabic words to improve your coordination and typing accuracy."
+  });
+}
+
+// 5. `oddiy_matnlar` (91 - 120, 30 exercises)
+for (let i = 1; i <= 30; i++) {
+  rawLessons.push({
+    id: 90 + i,
+    number: i,
+    stage: 'oddiy_matnlar',
+    titleUz: `Uzbekcha hikmatli gap: Mashq ${i}`,
+    titleEn: `Inspiring Quote: Lesson ${i}`,
+    targetKeys: "Complete Sentences",
+    textUz: simpleTextsUz[i - 1],
+    textEn: simpleTextsEn[i - 1],
+    altTextUz: simpleTextsUz[30 - i],
+    altTextEn: simpleTextsEn[30 - i],
+    descriptionUz: "To'liqligicha haqiqiy va motivatsion o'zbekcha gaplarni yozish orqali tezligingizni sinab ko'ring.",
+    descriptionEn: "Test your pacing by typing beautiful full-prose motivational sentences without mistakes."
+  });
+}
+
+// 6. `professional_matnlar` (121 - 150, 30 exercises)
+for (let i = 1; i <= 30; i++) {
+  rawLessons.push({
+    id: 120 + i,
+    number: i,
+    stage: 'professional_matnlar',
+    titleUz: `Kasbiy matnlar: Mashq ${i}`,
+    titleEn: `Professional Passage: Lesson ${i}`,
+    targetKeys: "Professional Paragraphs",
+    textUz: profTextsUz[(i - 1) % 10],
+    textEn: profTextsEn[(i - 1) % 10],
+    altTextUz: profTextsUz[(30 - i) % 10],
+    altTextEn: profTextsEn[(30 - i) % 10],
+    descriptionUz: "Yuqori darajadagi kasbiy va ilmiy matnlar ustida ishlab, to'liq mahoratli mutaxassisga aylaning.",
+    descriptionEn: "Practice with academic and software project descriptions to cement your high-tier output."
+  });
+}
+
 // Map stages
 export const LESSONS: Lesson[] = rawLessons.map(lesson => {
-  let stage: 'boshlangich' | 'orta' | 'mukammal' | 'frontend' | 'backend' | 'database' = 'boshlangich';
-  if (lesson.id > 40) {
+  let stage: 'boshlangich' | 'orta' | 'mukammal' | 'murakkab_sozlar' | 'oddiy_matnlar' | 'professional_matnlar' | 'frontend' | 'backend' | 'database' | 'ai_integration' | 'data_structures' | 'system_design' = 'boshlangich';
+  if (lesson.id >= 121 && lesson.id <= 150) {
+    stage = 'professional_matnlar';
+  } else if (lesson.id >= 91 && lesson.id <= 120) {
+    stage = 'oddiy_matnlar';
+  } else if (lesson.id >= 61 && lesson.id <= 90) {
+    stage = 'murakkab_sozlar';
+  } else if (lesson.id > 40) {
     stage = 'mukammal';
   } else if (lesson.id > 20) {
     stage = 'orta';
@@ -440,8 +607,9 @@ export const LESSONS: Lesson[] = rawLessons.map(lesson => {
   };
 });
 
-export function getLessonsByStage(stage: 'boshlangich' | 'orta' | 'mukammal'): Lesson[] {
-  return LESSONS.filter(l => l.stage === stage) as any;
+export function getLessonsByStage(stage: string): Lesson[] {
+  const all = [...LESSONS, ...PROGRAMMING_LESSONS];
+  return all.filter(l => l.stage === stage);
 }
 
 /// 3. Programming Academy Lessons definitions
@@ -1112,5 +1280,102 @@ export const PROGRAMMING_LESSONS: Lesson[] = [
     descriptionEn: "Construct advanced text indexing vector queries, boolean search syntax and tsquery operators."
   }
 ];
+
+// --- DYNAMIC GENERATOR FOR PROGRAMMING EXTRA STAGES (161-250) ---
+const aiSnippets = [
+  "const ai = new GoogleGenAI({ apiKey }); const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: 'Hello' });",
+  "const chat = ai.chats.create({ model: 'gemini-2.5-flash' }); let response = await chat.sendMessage({ message: 'What is climate change?' });",
+  "const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: [ { text: 'Describe image:' }, { inlineData: { data: base64, mimeType } } ] });",
+  "const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: text, config: { responseMimeType: 'application/json', responseSchema } });",
+  "for await (const chunk of await ai.models.generateContentStream({ model: 'gemini-2.5-flash', contents: 'Write a poem about typing' })) { process.stdout.write(chunk.text); }",
+  "const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt, config: { systemInstruction: 'Strict typing tutor.' } });",
+  "const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: 'Uzbekistan capitals', config: { tools: [{ googleSearch: {} }] } });",
+  "const embeddings = await ai.models.embedContent({ model: 'text-embedding-004', contents: { parts: [{ text: 'Typing master database' }] } });",
+  "const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: 'Search query', config: { tools: [{ functionDeclarations: [myFunc] }] } });",
+  "const file = await ai.files.upload({ file: 'path/to/source.js', mimeType: 'text/plain' }); const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: [file, 'Review this code'] });"
+];
+
+const dsaSnippets = [
+  "class ListNode<T> { value: T; next: ListNode<T> | null = null; constructor(value: T) { this.value = value; } }",
+  "class BinaryTreeNode<T> { val: T; left: BinaryTreeNode<T> | null = null; right: BinaryTreeNode<T> | null = null; constructor(val: T) { this.val = val; } }",
+  "function binarySearch(arr: number[], target: number): number { let l = 0, r = arr.length - 1; while (l <= r) { const m = Math.floor((l+r)/2); if (arr[m] === target) return m; if (arr[m] < target) l = m + 1; else r = m - 1; } return -1; }",
+  "function quickSort(arr: number[]): number[] { if (arr.length <= 1) return arr; const p = arr[0]; const left = arr.slice(1).filter(x => x <= p); const right = arr.slice(1).filter(x => x > p); return [...quickSort(left), p, ...quickSort(right)]; }",
+  "class Stack<T> { private items: T[] = []; push(item: T) { this.items.push(item); } pop(): T | undefined { return this.items.pop(); } isEmpty() { return this.items.length === 0; } }",
+  "class Queue<T> { private items: Record<number, T> = {}; private head = 0; private tail = 0; enqueue(item: T) { this.items[this.tail++] = item; } dequeue() { const val = this.items[this.head]; delete this.items[this.head++]; return val; } }",
+  "function bubbleSort(arr: number[]): number[] { const n = arr.length; for (let i = 0; i < n; i++) { for (let j = 0; j < n - i - 1; j++) { if (arr[j] > arr[j+1]) { [arr[j], arr[j+1]] = [arr[j+1], arr[j]]; } } } return arr; }",
+  "class Graph { private adjList: Map<any, any[]> = new Map(); addVertex(v: any) { this.adjList.set(v, []); } addEdge(u: any, v: any) { this.adjList.get(u)?.push(v); this.adjList.get(v)?.push(u); } }",
+  "function fibonacciMemo(n: number, memo: Record<number, number> = {}): number { if (n <= 1) return n; if (n in memo) return memo[n]; memo[n] = fibonacciMemo(n - 1, memo) + fibonacciMemo(n - 2, memo); return memo[n]; }",
+  "function hasCycle(head: ListNode<any> | null): boolean { let slow = head, fast = head; while (fast && fast.next) { slow = slow!.next; fast = fast.next.next; if (slow === fast) return true; } return false; }"
+];
+
+const sysSnippets = [
+  "FROM node:20-alpine AS builder WORKDIR /app COPY package*.json ./ RUN npm ci COPY . . RUN npm run build",
+  "server { listen 80; server_name app.dk-typing.uz; location / { proxy_pass http://localhost:3000; proxy_set_header Host $host; } }",
+  "apiVersion: apps/v1 kind: Deployment metadata: name: node-app spec: replicas: 3 selector: matchLabels: app: web template: metadata: labels: app: web",
+  "version: '3.8' services: web: build: . ports: - '3000:3000' environment: - REDIS_URL=redis://redis:6379 dependency: - redis redis: image: redis:alpine",
+  "git checkout -b feature/realtime-sync && git add . && git commit -m 'feat: live multiplayer sync via fullstack' && git push origin feature/realtime-sync",
+  "const ipLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, message: 'Too many requests from this IP' }); app.use('/api/', ipLimit);",
+  "const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 20, idleTimeoutMillis: 30000, connectionTimeoutMillis: 2000 });",
+  "const secureRouter = express.Router(); secureRouter.use(helmet()); secureRouter.use(cors({ origin: 'https://dk-typing.uz', credentials: true }));",
+  "const winston = require('winston'); const logger = winston.createLogger({ level: 'info', format: winston.format.json(), transports: [new winston.transports.Console()] });",
+  "const monitor = (req, res, next) => { const start = process.hrtime(); res.on('finish', () => { const diff = process.hrtime(start); logger.info(`${req.method} ${req.url}`); }); next(); };"
+];
+
+// 4. `ai_integration` (161 - 190, 30 exercises)
+for (let i = 1; i <= 30; i++) {
+  const code = aiSnippets[(i - 1) % aiSnippets.length];
+  PROGRAMMING_LESSONS.push({
+    id: 160 + i,
+    number: i,
+    stage: 'ai_integration',
+    titleUz: `AI Integratsiya: Mashq ${i}`,
+    titleEn: `Gemini AI Integration: Lesson ${i}`,
+    targetKeys: "models, generateContent",
+    textUz: code,
+    textEn: code,
+    altTextUz: code,
+    altTextEn: code,
+    descriptionUz: "Gemini TypeScript SDK va neyron tarmoqlar integratsiyasi modullarini dasturlash mantiqi darslari.",
+    descriptionEn: "Surgical practice writing Google GenAI model interfaces, streams, and functional configs."
+  });
+}
+
+// 5. `data_structures` (191 - 220, 30 exercises)
+for (let i = 1; i <= 30; i++) {
+  const code = dsaSnippets[(i - 1) % dsaSnippets.length];
+  PROGRAMMING_LESSONS.push({
+    id: 190 + i,
+    number: i,
+    stage: 'data_structures',
+    titleUz: `Algoritm va Tuzilma: Mashq ${i}`,
+    titleEn: `Algorithms & DSA: Lesson ${i}`,
+    targetKeys: "class, node, search",
+    textUz: code,
+    textEn: code,
+    altTextUz: code,
+    altTextEn: code,
+    descriptionUz: "Klassik Linked List, Daraxt shoxlari va sorting algoritmlarini yozish mahorati darslari.",
+    descriptionEn: "Refine your programming speed typing data structure node models, linked lists and queries."
+  });
+}
+
+// 6. `system_design` (221 - 250, 30 exercises)
+for (let i = 1; i <= 30; i++) {
+  const code = sysSnippets[(i - 1) % sysSnippets.length];
+  PROGRAMMING_LESSONS.push({
+    id: 220 + i,
+    number: i,
+    stage: 'system_design',
+    titleUz: `Tizim va DevOps: Mashq ${i}`,
+    titleEn: `System Design & DevOps: Lesson ${i}`,
+    targetKeys: "server, docker, proxy",
+    textUz: code,
+    textEn: code,
+    altTextUz: code,
+    altTextEn: code,
+    descriptionUz: "Docker files, Docker Compose, Nginx konfiguratsiya va routing protokollarini sozlash darslari.",
+    descriptionEn: "Cement expert DevOps capability typing physical servers wireframes, gateways, and Git pipelines."
+  });
+}
 
 

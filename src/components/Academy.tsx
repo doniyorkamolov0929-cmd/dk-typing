@@ -42,7 +42,7 @@ export default function Academy({
   language
 }: AcademyProps) {
   const [selectedCourse, setSelectedCourse] = useState<'keyboard' | 'programming'>('keyboard');
-  const [selectedStage, setSelectedStage] = useState<'boshlangich' | 'orta' | 'mukammal' | 'frontend' | 'backend' | 'database'>('boshlangich');
+  const [selectedStage, setSelectedStage] = useState<'boshlangich' | 'orta' | 'mukammal' | 'murakkab_sozlar' | 'oddiy_matnlar' | 'professional_matnlar' | 'frontend' | 'backend' | 'database' | 'ai_integration' | 'data_structures' | 'system_design'>('boshlangich');
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
 
   // Lesson interactive typing states
@@ -147,6 +147,30 @@ export default function Academy({
       bgEn: "Numerical strings, custom symbols, mathematical equations, and active developer code scripts.",
       lessonsRange: [41, 60]
     },
+    murakkab_sozlar: {
+      nameUz: "Murakkab So'zlar",
+      nameEn: "Complex Words",
+      accent: "from-blue-600 to-indigo-700",
+      bgUz: "Klaviatura mahoratingizni sinaydigan murakkab so'zlar va g'ayrioddiy harf zanjirlari.",
+      bgEn: "Challenging multisyllabic keywords configurations to master high-accuracy muscle memory.",
+      lessonsRange: [61, 90]
+    },
+    oddiy_matnlar: {
+      nameUz: "Oddiy Matnlar",
+      nameEn: "Simple Texts",
+      accent: "from-indigo-600 to-violet-700",
+      bgUz: "Haqiqiy o'zbekcha va inglizcha foydali, motivatsion hikmatlar va jumlalar to'plami.",
+      bgEn: "Positive motivational passages, inspiring quotes and normal conversational typing.",
+      lessonsRange: [91, 120]
+    },
+    professional_matnlar: {
+      nameUz: "Kasbiy Matnlar",
+      nameEn: "Professional Passages",
+      accent: "from-pink-600 to-rose-700",
+      bgUz: "Yirik ilmiy va amaliy loyihalarning tushuntirish va taqdimot matnlari ustida ishlash.",
+      bgEn: "Elite level academic passages and software project summaries to finalize master level.",
+      lessonsRange: [121, 150]
+    },
     frontend: {
       nameUz: "Frontend Dasturlash",
       nameEn: "Frontend Development",
@@ -170,6 +194,30 @@ export default function Academy({
       bgUz: "PostgreSQL so'rovlari va Drizzle, Firestore xavfsizlik qoidalari hamda .env maxfiylik sozlamalari.",
       bgEn: "PostgreSQL DQL queries and Drizzle schemas, Firestore database security rules, and env controls.",
       lessonsRange: [141, 160]
+    },
+    ai_integration: {
+      nameUz: "Sun'iy Intellekt",
+      nameEn: "AI Integration",
+      accent: "from-amber-600 to-red-650",
+      bgUz: "Gemini API chaqiruvlari, model sozlamalari hamda server-side xavfsiz prompt muhandisligi kodlari.",
+      bgEn: "Clean code workflows for Gemini client triggers, parameters parsing, and stream completions.",
+      lessonsRange: [161, 190]
+    },
+    data_structures: {
+      nameUz: "Ma'lumotlar Tuzilmalari",
+      nameEn: "Data Structures & DSA",
+      accent: "from-teal-600 to-emerald-700",
+      bgUz: "ListNode, BinaryTree, binarySearch va quickSort kabi klassik algoritmlarni tezkor yozish.",
+      bgEn: "Train rapid software engineering speed compiling memory pointers, node models, and index queries.",
+      lessonsRange: [191, 220]
+    },
+    system_design: {
+      nameUz: "Tizimlar va DevOps",
+      nameEn: "System Design & DevOps",
+      accent: "from-violet-600 to-fuchsia-700",
+      bgUz: "Docker, Nginx marshrutlash, Kubernetes deploy sozlamalari hamda Git hamkorlik pipeline kodlari.",
+      bgEn: "Master physical cloud deployment architectures, gateways configuration, and atomic requests monitoring.",
+      lessonsRange: [221, 250]
     }
   };
 
@@ -197,9 +245,14 @@ export default function Academy({
       lessonId === 1 || 
       lessonId === 21 || 
       lessonId === 41 || 
+      lessonId === 61 ||
+      lessonId === 91 ||
       lessonId === 101 || 
-      lessonId === 111 || 
-      lessonId === 121
+      lessonId === 121 ||
+      lessonId === 141 ||
+      lessonId === 161 ||
+      lessonId === 191 ||
+      lessonId === 221
     ) {
       return true;
     }
@@ -361,9 +414,9 @@ export default function Academy({
       // Auto unlock NEXT lesson ID immediately
       const nextLessonId = activeLesson!.id + 1;
       const updatedUnlocked = { ...prev.unlockedLessons };
-      if (selectedCourse === 'keyboard' && nextLessonId <= 60) {
+      if (selectedCourse === 'keyboard' && nextLessonId <= 150) {
         updatedUnlocked[nextLessonId.toString()] = true;
-      } else if (selectedCourse === 'programming' && nextLessonId <= 130) {
+      } else if (selectedCourse === 'programming' && nextLessonId <= 250) {
         updatedUnlocked[nextLessonId.toString()] = true;
       }
 
@@ -398,16 +451,32 @@ export default function Academy({
     const nextLessonId = activeLesson!.id + 1;
     
     if (selectedCourse === 'keyboard') {
-      if (nextLessonId <= 40 && selectedStage === 'boshlangich' && nextLessonId > 20) {
-        setSelectedStage('orta');
-      } else if (nextLessonId <= 60 && selectedStage === 'orta' && nextLessonId > 40) {
+      if (nextLessonId >= 121 && nextLessonId <= 150) {
+        setSelectedStage('professional_matnlar');
+      } else if (nextLessonId >= 91 && nextLessonId <= 120) {
+        setSelectedStage('oddiy_matnlar');
+      } else if (nextLessonId >= 61 && nextLessonId <= 90) {
+        setSelectedStage('murakkab_sozlar');
+      } else if (nextLessonId >= 41 && nextLessonId <= 60) {
         setSelectedStage('mukammal');
+      } else if (nextLessonId >= 21 && nextLessonId <= 40) {
+        setSelectedStage('orta');
+      } else if (nextLessonId >= 1 && nextLessonId <= 20) {
+        setSelectedStage('boshlangich');
       }
     } else {
-      if (nextLessonId <= 110 && selectedStage === 'frontend' && nextLessonId > 110) {
-        setSelectedStage('backend');
-      } else if (nextLessonId <= 120 && selectedStage === 'backend' && nextLessonId > 120) {
+      if (nextLessonId >= 221 && nextLessonId <= 250) {
+        setSelectedStage('system_design');
+      } else if (nextLessonId >= 191 && nextLessonId <= 220) {
+        setSelectedStage('data_structures');
+      } else if (nextLessonId >= 161 && nextLessonId <= 190) {
+        setSelectedStage('ai_integration');
+      } else if (nextLessonId >= 141 && nextLessonId <= 160) {
         setSelectedStage('database');
+      } else if (nextLessonId >= 121 && nextLessonId <= 140) {
+        setSelectedStage('backend');
+      } else if (nextLessonId >= 101 && nextLessonId <= 120) {
+        setSelectedStage('frontend');
       }
     }
 
@@ -471,13 +540,17 @@ export default function Academy({
 
   // Check if all levels in Keyboard or Programming are completed to claim Diploma
   const isCourseFullyCompleted = (course: 'keyboard' | 'programming') => {
-    const stages = course === 'keyboard' ? ['boshlangich', 'orta', 'mukammal'] : ['frontend', 'backend', 'database'];
+    const stages = course === 'keyboard' 
+      ? ['boshlangich', 'orta', 'mukammal', 'murakkab_sozlar', 'oddiy_matnlar', 'professional_matnlar'] 
+      : ['frontend', 'backend', 'database', 'ai_integration', 'data_structures', 'system_design'];
     return stages.every(stage => isStageFullyCompleted(stage));
   };
 
-  // Calculate average stats over the entire 60 lessons course for Diploma layout
+  // Calculate average stats over the entire 150 lessons course for Diploma layout
   const calculateCourseAverages = (course: 'keyboard' | 'programming') => {
-    const stages = course === 'keyboard' ? ['boshlangich', 'orta', 'mukammal'] : ['frontend', 'backend', 'database'];
+    const stages = course === 'keyboard' 
+      ? ['boshlangich', 'orta', 'mukammal', 'murakkab_sozlar', 'oddiy_matnlar', 'professional_matnlar'] 
+      : ['frontend', 'backend', 'database', 'ai_integration', 'data_structures', 'system_design'];
     let totalWpm = 0;
     let totalAcc = 0;
     let count = 0;
@@ -818,21 +891,26 @@ export default function Academy({
 
           {/* Chronological Stage selector tabs */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {(selectedCourse === 'keyboard' ? ['boshlangich', 'orta', 'mukammal'] : ['frontend', 'backend', 'database']).map(stage => {
+            {(selectedCourse === 'keyboard' 
+              ? ['boshlangich', 'orta', 'mukammal', 'murakkab_sozlar', 'oddiy_matnlar', 'professional_matnlar'] 
+              : ['frontend', 'backend', 'database', 'ai_integration', 'data_structures', 'system_design']
+            ).map(stage => {
               const active = selectedStage === stage;
               const details = stageDetails[stage];
               const completed = isStageFullyCompleted(stage);
+              const numLessons = details.lessonsRange[1] - details.lessonsRange[0] + 1;
+              const maxStars = numLessons * 3;
 
               return (
                 <button
                   key={stage}
-                  onClick={() => setSelectedStage(stage)}
+                  onClick={() => setSelectedStage(stage as any)}
                   className={`border p-5 rounded-3xl text-left transition-all relative overflow-hidden flex flex-col justify-between min-h-[196px] cursor-pointer ${active ? 'bg-slate-900 border-slate-900 text-white shadow-xl scale-102 ring-4 ring-cyan-500/10' : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'}`}
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className={`text-[10px] uppercase font-mono tracking-widest font-extrabold px-2.5 py-1 rounded-md text-white bg-gradient-to-r ${details.accent}`}>
-                        {stage === 'boshlangich' ? "BOSHLANG'ICH" : (stage === 'orta' ? "O'RTA" : (stage === 'mukammal' ? "MUKAMMAL" : (stage === 'frontend' ? "FRONTEND" : (stage === 'backend' ? "BACKEND" : "DATABASE / SQL"))))}
+                        {details.nameUz.toUpperCase()}
                       </span>
                       {completed && (
                         <span className="text-xs bg-emerald-500/10 text-emerald-400 font-bold px-2 py-0.5 rounded border border-emerald-500/20">
@@ -851,7 +929,7 @@ export default function Academy({
                   {/* Complete stars indicator metrics in badge */}
                   <div className="flex items-center justify-between pt-2 border-t border-slate-150/10 mt-2">
                     <span className="text-[10px] font-mono uppercase tracking-wider opacity-60">
-                      20 ta progressiv mashq
+                      {numLessons} ta progressiv mashq
                     </span>
                     <span className="text-xs font-bold text-amber-500 inline-flex items-center">
                       <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500 mr-1" />
@@ -861,7 +939,6 @@ export default function Academy({
                         for (let cur = r[0]; cur <= r[1]; cur++) {
                           stars += profile.lessonStars[cur.toString()] || 0;
                         }
-                        const maxStars = 60;
                         return `${stars} / ${maxStars}`;
                       })()}
                     </span>

@@ -21,7 +21,13 @@ import SpeedTest from './components/SpeedTest';
 import Academy from './components/Academy';
 import Dashboard from './components/Dashboard';
 import Leaderboard from './components/Leaderboard';
+import ProfilePage from './components/ProfilePage';
+import InteractiveOverlays from './components/InteractiveOverlays';
+import MultiplayerRace from './components/MultiplayerRace';
 import { THEMES } from './utils/theme';
+import { auth, onAuthStateChanged, signOut, googleProvider, signInWithPopup, db } from './lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { loadUserProfile, loadUserHistory, saveUserProfile, saveUserHistory, mergeProfiles, pingOnlineStatus, updateGameRequest } from './lib/sync';
 
 import { 
   AlertTriangle, 
@@ -35,10 +41,13 @@ import {
 export default function App() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [history, setHistory] = useState<TestHistoryEntry[]>([]);
-  const [activeTab, setActiveTab] = useState<'speedtest' | 'academy' | 'dashboard' | 'leaderboard'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'speedtest' | 'academy' | 'dashboard' | 'leaderboard' | 'profile'>('dashboard');
   
   // App language setting (uz = Uzbek, en = English) saved in localstorage
   const [language, setLanguage] = useState<'uz' | 'en'>('uz');
+
+  // Multiplayer Room
+  const [activeGameRoomId, setActiveGameRoomId] = useState<string | null>(null);
 
   // Custom trouble keys practice sequence
   const [practiceKeys, setPracticeKeys] = useState<string[] | null>(null);
@@ -50,20 +59,18 @@ export default function App() {
   // Prestige cycle achievement popup alerts
   const [showCycleUpgradeAlert, setShowCycleUpgradeAlert] = useState(false);
 
-  // Load profile and history on mount
+  // Load initial local config on mount
   useEffect(() => {
-    const isNew = localStorage.getItem('dk_lang_v2') as 'uz' | 'en' | null;
-    if (isNew) {
-      setLanguage(isNew);
+    const lang = localStorage.getItem('dk_lang_v2') as 'uz' | 'en' | null;
+    if (lang) {
+      setLanguage(lang);
     }
 
     const loadedProfile = getStoredProfile();
     const loadedHistory = getStoredHistory();
-
     setHistory(loadedHistory);
 
     if (loadedProfile.fullName) {
-      // Calculate daily streaks
       const streakCalc = calculateUpdatedStreak(loadedProfile.lastActiveDate, loadedProfile.streak);
       const updatedProfile = {
         ...loadedProfile,
@@ -77,10 +84,97 @@ export default function App() {
     }
   }, []);
 
-  // Save profile and sync to localStorage whenever it changes
+  // Sync state with Firebase Auth Status changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // User authenticated with Google
+        try {
+          const remoteProfile = await loadUserProfile(firebaseUser.uid);
+          const remoteHistory = await loadUserHistory(firebaseUser.uid);
+          
+          const localProfile = getStoredProfile();
+          const localHistory = getStoredHistory();
+
+          let finalProfile = remoteProfile
+            ? mergeProfiles(localProfile, remoteProfile)
+            : {
+                ...localProfile,
+                fullName: firebaseUser.displayName || localProfile.fullName,
+              };
+
+          // Set Google-specific credentials
+          finalProfile = {
+            ...finalProfile,
+            uid: firebaseUser.uid,
+            authType: 'google',
+            email: firebaseUser.email || undefined,
+            photoURL: firebaseUser.photoURL || undefined
+          };
+
+          // Merge history lists
+          const historyMap = new Map<string, TestHistoryEntry>();
+          [...remoteHistory, ...localHistory].forEach(item => {
+            if (item?.id) {
+              historyMap.set(item.id, item);
+            }
+          });
+          const finalHistory = Array.from(historyMap.values()).sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
+
+          setProfile(finalProfile);
+          saveStoredProfile(finalProfile);
+          setHistory(finalHistory);
+          saveStoredHistory(finalHistory);
+
+          // Back up merged values back to the cloud database
+          await saveUserProfile(firebaseUser.uid, finalProfile);
+          await saveUserHistory(firebaseUser.uid, finalHistory);
+        } catch (err) {
+          console.warn("Cloud merge warning on auth state change:", err);
+        }
+      } else {
+        // Logged out
+        const localProfile = getStoredProfile();
+        if (localProfile.authType === 'google') {
+          // Switch active memory back to guest
+          const guestProfile: UserProfile = {
+            ...localProfile,
+            uid: undefined,
+            authType: 'guest',
+            email: undefined,
+            photoURL: undefined
+          };
+          setProfile(guestProfile);
+          saveStoredProfile(guestProfile);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Presence Pinger
+  useEffect(() => {
+    if (profile?.uid && profile.authType === 'google') {
+      // Ping immediately
+      pingOnlineStatus(profile.uid);
+      // Then every 30s
+      const it = setInterval(() => pingOnlineStatus(profile.uid!), 30_000);
+      return () => clearInterval(it);
+    }
+  }, [profile?.uid, profile?.authType]);
+
+  // Save profile & sync to localStorage/cloud whenever it changes locally
   useEffect(() => {
     if (profile && profile.fullName) {
       saveStoredProfile(profile);
+
+      // Trigger cloud upload if logged in with Google
+      if (profile.uid && profile.authType === 'google') {
+        saveUserProfile(profile.uid, profile);
+      }
 
       // Check if they completed all 60 lessons of the cycle to prompt Prestige Cycle Mode!
       let allCompletedCount = 0;
@@ -97,23 +191,91 @@ export default function App() {
     }
   }, [profile]);
 
+  // Sync history updates to the cloud if logged in
+  useEffect(() => {
+    if (profile && profile.uid && profile.authType === 'google' && history) {
+      saveUserHistory(profile.uid, history);
+    }
+  }, [history, profile?.uid]);
+
   // Sync language with storage
   const handleSetLanguage = (lang: 'uz' | 'en') => {
     setLanguage(lang);
     localStorage.setItem('dk_lang_v2', lang);
   };
 
-  const handleWelcomeComplete = (fullName: string) => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    const newProfile: UserProfile = {
-      ...INITIAL_PROFILE,
-      fullName,
-      lastActiveDate: todayStr,
-      streak: 1
-    };
-    setProfile(newProfile);
-    saveStoredProfile(newProfile);
+  const handleWelcomeComplete = (updatedProfile: UserProfile, initialHistory?: TestHistoryEntry[]) => {
+    setProfile(updatedProfile);
+    saveStoredProfile(updatedProfile);
+    if (initialHistory) {
+      setHistory(initialHistory);
+      saveStoredHistory(initialHistory);
+    }
     setActiveTab('dashboard');
+  };
+
+  // Google sign out
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      const currentLocal = getStoredProfile();
+      const guestProfile: UserProfile = {
+        ...currentLocal,
+        uid: undefined,
+        authType: 'guest',
+        email: undefined,
+        photoURL: undefined
+      };
+      setProfile(guestProfile);
+      saveStoredProfile(guestProfile);
+    } catch (e) {
+      console.warn("Sign out fail:", e);
+    }
+  };
+
+  // Associate a guest user profile with a Google account (onboarded guests linking)
+  const handleLinkGoogle = async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      if (user && profile) {
+        const remoteProfile = await loadUserProfile(user.uid);
+        const remoteHistory = await loadUserHistory(user.uid);
+
+        let finalProfile = remoteProfile
+          ? mergeProfiles(profile, remoteProfile)
+          : { ...profile };
+
+        finalProfile = {
+          ...finalProfile,
+          uid: user.uid,
+          authType: 'google',
+          email: user.email || undefined,
+          photoURL: user.photoURL || undefined
+        };
+
+        const historyMap = new Map<string, TestHistoryEntry>();
+        [...remoteHistory, ...history].forEach(item => {
+          if (item?.id) {
+            historyMap.set(item.id, item);
+          }
+        });
+        const finalHistory = Array.from(historyMap.values()).sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+
+        setProfile(finalProfile);
+        saveStoredProfile(finalProfile);
+        setHistory(finalHistory);
+        saveStoredHistory(finalHistory);
+
+        // Upload merged state to Firebase
+        await saveUserProfile(user.uid, finalProfile);
+        await saveUserHistory(user.uid, finalHistory);
+      }
+    } catch (error) {
+      console.warn("Could not link Google account (user may have closed popup):", error);
+    }
   };
 
   // Safe History recording
@@ -122,8 +284,19 @@ export default function App() {
     setHistory(updated);
   };
 
+  const handleUpdateProfileData = async (updatedProfile: UserProfile) => {
+    setProfile(updatedProfile);
+    saveStoredProfile(updatedProfile);
+    if (updatedProfile.uid && updatedProfile.authType === 'google') {
+      await saveUserProfile(updatedProfile.uid, updatedProfile);
+    }
+  };
+
   // Safe profile clear operation (Hard reset)
-  const handleProfileHardReset = () => {
+  const handleProfileHardReset = async () => {
+    if (auth.currentUser) {
+      await signOut(auth);
+    }
     clearAllStorageData();
     setHistory([]);
     setProfile({ ...INITIAL_PROFILE });
@@ -174,7 +347,13 @@ export default function App() {
 
   // Show onboarding modal if fullName not registered
   if (!profile || !profile.fullName) {
-    return <WelcomeModal onComplete={handleWelcomeComplete} />;
+    return (
+      <WelcomeModal 
+        onComplete={handleWelcomeComplete} 
+        language={language}
+        setLanguage={handleSetLanguage}
+      />
+    );
   }
 
   // Dynamic Theme layout matching
@@ -192,50 +371,77 @@ export default function App() {
         language={language}
         setLanguage={handleSetLanguage}
         onResetTrigger={() => setShowAccountResetModal(true)}
+        onSignOut={handleSignOut}
       />
 
       {/* 2. Primary Page workspace render views */}
       <main className="flex-1 p-4 md:p-8 overflow-y-auto print:p-0">
         <div className="max-w-5xl mx-auto">
-          {activeTab === 'speedtest' && (
-            <SpeedTest
+          {activeGameRoomId ? (
+            <MultiplayerRace
               profile={profile}
-              setProfile={setProfile}
-              onSaveHistory={handleSaveHistory}
               language={language}
-              practiceKeys={practiceKeys}
-              clearPracticeKeys={handleClearPracticeKeys}
+              roomId={activeGameRoomId}
+              onLeave={() => setActiveGameRoomId(null)}
             />
-          )}
+          ) : (
+            <>
+              {activeTab === 'speedtest' && (
+                <SpeedTest
+                  profile={profile}
+                  setProfile={setProfile}
+                  onSaveHistory={handleSaveHistory}
+                  language={language}
+                  practiceKeys={practiceKeys}
+                  clearPracticeKeys={handleClearPracticeKeys}
+                />
+              )}
 
-          {activeTab === 'academy' && (
-            <Academy
-              profile={profile}
-              setProfile={setProfile}
-              onSaveHistory={handleSaveHistory}
-              language={language}
-            />
-          )}
+              {activeTab === 'academy' && (
+                <Academy
+                  profile={profile}
+                  setProfile={setProfile}
+                  onSaveHistory={handleSaveHistory}
+                  language={language}
+                />
+              )}
 
-          {activeTab === 'dashboard' && (
-            <Dashboard
-              profile={profile}
-              setProfile={setProfile}
-              history={history}
-              language={language}
-              onClearHistoryTrigger={() => setShowHistoryClearModal(true)}
-              onPracticeProblemKeys={handlePracticeProblemKeys}
-            />
-          )}
+              {activeTab === 'dashboard' && (
+                <Dashboard
+                  profile={profile}
+                  setProfile={setProfile}
+                  history={history}
+                  language={language}
+                  onClearHistoryTrigger={() => setShowHistoryClearModal(true)}
+                  onPracticeProblemKeys={handlePracticeProblemKeys}
+                  onLinkGoogle={handleLinkGoogle}
+                />
+              )}
 
-          {activeTab === 'leaderboard' && profile && (
-            <Leaderboard
-              profile={profile}
-              language={language}
-            />
+              {activeTab === 'leaderboard' && (
+                <Leaderboard
+                  profile={profile}
+                  language={language}
+                  onLinkGoogle={handleLinkGoogle}
+                />
+              )}
+
+              {activeTab === 'profile' && (
+                <ProfilePage
+                  profile={profile}
+                  language={language}
+                  onProfileUpdate={handleUpdateProfileData}
+                  onSignOut={handleSignOut}
+                  onResetData={() => setShowAccountResetModal(true)}
+                />
+              )}
+            </>
           )}
         </div>
       </main>
+
+      {/* Overlays */}
+      <InteractiveOverlays profile={profile} language={language} onPlayMultiplayer={setActiveGameRoomId} />
 
       {/* SAFE CUSTOM CONFIRM MODAL: 1. Profile Account Hard Reset confirmation */}
       {showAccountResetModal && (

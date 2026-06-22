@@ -33,8 +33,26 @@ export const INITIAL_PROFILE: UserProfile = {
 export function getStoredProfile(): UserProfile {
   try {
     const raw = localStorage.getItem(PROFILE_KEY);
-    if (!raw) return { ...INITIAL_PROFILE };
+    if (!raw) {
+      const defaultProfile = { ...INITIAL_PROFILE };
+      defaultProfile.id = `user_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      defaultProfile.accountId = Math.floor(10000 + Math.random() * 90000).toString();
+      saveStoredProfile(defaultProfile);
+      return defaultProfile;
+    }
     const parsed = JSON.parse(raw);
+    let needSave = false;
+    if (!parsed.id) {
+      parsed.id = `user_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      needSave = true;
+    }
+    if (!parsed.accountId) {
+      parsed.accountId = Math.floor(10000 + Math.random() * 90000).toString();
+      needSave = true;
+    }
+    if (needSave) {
+      saveStoredProfile(parsed);
+    }
     
     // Ensure 1, 21, and 41 are unlocked by default as per the requirement
     const unlocked = { ...parsed.unlockedLessons };
